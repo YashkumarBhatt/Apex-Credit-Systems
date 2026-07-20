@@ -336,32 +336,7 @@ function renderPortfolioCharts() {
         xaxis: { showgrid: false }
     }, {responsive: true});
     
-    // Chart 2: Scatter 
-    // Random sample of 300 to keep it performant
-    const sample = data.sort(() => 0.5 - Math.random()).slice(0, 300);
-    const approvedSample = sample.filter(d => d.Loan_Status === 1);
-    const rejectedSample = sample.filter(d => d.Loan_Status === 0);
-    
-    Plotly.newPlot('chart-scatter', [
-        {
-            x: approvedSample.map(d => d.ApplicantIncome),
-            y: approvedSample.map(d => d.LoanAmount),
-            mode: 'markers', name: 'Approved',
-            marker: { color: '#34d399', opacity: 0.7, size: 8 }
-        },
-        {
-            x: rejectedSample.map(d => d.ApplicantIncome),
-            y: rejectedSample.map(d => d.LoanAmount),
-            mode: 'markers', name: 'Rejected',
-            marker: { color: '#f87171', opacity: 0.7, size: 8 }
-        }
-    ], {
-        ...layoutBase,
-        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', title: 'Applicant Income' },
-        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', title: 'Loan Amount' },
-        legend: { orientation: 'h', y: 1.1 }
-    }, {responsive: true});
-    
+    // Removed Chart 2 (Scatter) as requested
     // Chart 3: Demographics Bar
     // Simplified to Property Area vs Approval Rate
     const propData = data.reduce((acc, row) => {
@@ -416,6 +391,9 @@ function calculateAmortization() {
     let remaining = principal;
     let cumInt = 0;
     
+    let tbodyHtml = '';
+    window.amortizationScheduleData = [['Month', 'Principal Paid', 'Interest Paid', 'Remaining Balance']];
+    
     for(let m = 1; m <= termMonths; m++) {
         let intPmt = remaining * monthlyRate;
         let prinPmt = monthlyPmt - intPmt;
@@ -423,9 +401,22 @@ function calculateAmortization() {
         cumInt += intPmt;
         
         months.push(m);
-        balances.push(Math.max(0, remaining));
+        let currentBalance = Math.max(0, remaining);
+        balances.push(currentBalance);
         cumInterests.push(cumInt);
+        
+        tbodyHtml += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 0.5rem; text-align: left;">${m}</td>
+                <td style="padding: 0.5rem;">$${prinPmt.toFixed(2)}</td>
+                <td style="padding: 0.5rem;">$${intPmt.toFixed(2)}</td>
+                <td style="padding: 0.5rem;">$${currentBalance.toFixed(2)}</td>
+            </tr>
+        `;
+        window.amortizationScheduleData.push([m, prinPmt.toFixed(2), intPmt.toFixed(2), currentBalance.toFixed(2)]);
     }
+    
+    document.getElementById('amortization-table-body').innerHTML = tbodyHtml;
     
     const layoutBase = {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
@@ -457,6 +448,19 @@ function calculateAmortization() {
         margin: { t: 0, b: 0, l: 0, r: 0 },
         legend: { orientation: 'h', y: 0, x: 0 }
     }, {responsive: true});
+}
+
+function downloadAmortizationCSV() {
+    if(!window.amortizationScheduleData || window.amortizationScheduleData.length === 0) return;
+    let csvContent = "data:text/csv;charset=utf-8," 
+        + window.amortizationScheduleData.map(e => e.join(",")).join("\n");
+    let encodedUri = encodeURI(csvContent);
+    let link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "amortization_schedule.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 /* ==============================
