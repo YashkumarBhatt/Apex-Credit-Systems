@@ -220,6 +220,10 @@ async function handlePredict(e) {
         const data = await res.json();
         const isApproved = data.prediction === 1;
         
+        // Auto-fill the amortization simulator with the applicant's loan details
+        document.getElementById('sim_amount').value = document.getElementById('loan_amount').value;
+        document.getElementById('sim_term').value = document.getElementById('loan_term').value;
+
         resultDiv.className = `result-card ${isApproved ? 'approved' : 'rejected'}`;
         const explanation = isApproved 
             ? 'The underwriting algorithm has analyzed the provided financial history and demographic factors. Approval is recommended.'
@@ -295,6 +299,11 @@ async function fetchPortfolioData() {
 function renderPortfolioCharts() {
     const data = portfolioDataCache;
     
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        console.warn("Portfolio data is empty or invalid. Charts will not render.");
+        return;
+    }
+    
     // KPI Math
     const totalRecords = data.length;
     const approvalRate = (data.filter(d => d.Loan_Status === 1).length / totalRecords) * 100;
@@ -363,14 +372,16 @@ function renderPortfolioCharts() {
    AMORTIZATION PLANNER
 ================================ */
 function calculateAmortization() {
-    const principal = parseFloat(document.getElementById('sim_amount').value);
-    const termMonths = parseInt(document.getElementById('sim_term').value);
-    const annualRate = parseFloat(document.getElementById('sim_rate').value);
+    const principal = parseFloat(document.getElementById('sim_amount').value) || 0;
+    const termMonths = parseInt(document.getElementById('sim_term').value) || 1;
+    const annualRate = parseFloat(document.getElementById('sim_rate').value) || 0;
     
     const monthlyRate = (annualRate / 100) / 12;
     
     let monthlyPmt = 0;
-    if (monthlyRate > 0) {
+    if (principal <= 0) {
+        monthlyPmt = 0;
+    } else if (monthlyRate > 0) {
         monthlyPmt = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
     } else {
         monthlyPmt = principal / termMonths;
