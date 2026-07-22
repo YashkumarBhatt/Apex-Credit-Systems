@@ -34,7 +34,7 @@
                 <div class="input-group">
                     <label for="password">Passcode</label>
                     <input type="password" id="password" required autocomplete="current-password"
-                        oninput="validatePassword()" oncopy="return false;" onpaste="return false;" oncut="return false;">
+                        oninput="validatePassword()" oncopy="return false;" onpaste="alert('Pasting the password is not allowed for security reasons. Please type it manually.'); return false;" oncut="return false;">
                     <div id="password-checklist" class="hidden"
                         style="margin-top: 0.5rem; text-align: left; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 8px;">
                         <ul style="list-style-type: none; padding-left: 0; margin-bottom: 0;">
