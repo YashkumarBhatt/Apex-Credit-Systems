@@ -27,6 +27,41 @@ function switchAuthTab(mode) {
     event.target.classList.add('active');
     document.getElementById('auth-submit-btn').textContent = mode === 'login' ? 'Access System' : 'Create Credentials';
     document.getElementById('auth-error').textContent = '';
+    
+    const checklist = document.getElementById('password-checklist');
+    if (checklist) {
+        if (mode === 'register') {
+            checklist.classList.remove('hidden');
+        } else {
+            checklist.classList.add('hidden');
+        }
+    }
+}
+
+function validatePassword() {
+    if (currentAuthMode !== 'register') return;
+    
+    const password = document.getElementById('password').value;
+    const username = document.getElementById('username').value;
+    
+    const updateReq = (id, isValid) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if(isValid) {
+            el.style.color = 'var(--success)';
+            el.innerHTML = '✓ ' + el.innerHTML.substring(2);
+        } else {
+            el.style.color = 'var(--danger)';
+            el.innerHTML = '✗ ' + el.innerHTML.substring(2);
+        }
+    };
+    
+    updateReq('req-length', password.length >= 8);
+    updateReq('req-upper', /[A-Z]/.test(password));
+    updateReq('req-lower', /[a-z]/.test(password));
+    updateReq('req-number', /[0-9]/.test(password));
+    updateReq('req-special', /[^A-Za-z0-9]/.test(password));
+    updateReq('req-diff', password !== username && password.length > 0);
 }
 
 function showAuth() {
@@ -132,6 +167,11 @@ async function handleAuth(e) {
 
     try {
         if (currentAuthMode === 'register') {
+            const isValid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) && password !== username;
+            if (!isValid) {
+                throw new Error("Password does not meet all security requirements.");
+            }
+            
             const res = await fetch(`${API_BASE}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -312,13 +352,13 @@ function renderPortfolioCharts() {
     
     document.getElementById('kpi-records').innerText = totalRecords.toLocaleString();
     document.getElementById('kpi-approval').innerText = approvalRate.toFixed(1) + '%';
-    document.getElementById('kpi-income').innerText = '$' + avgIncome.toLocaleString(undefined, {maximumFractionDigits:0});
-    document.getElementById('kpi-loan').innerText = '$' + avgLoan.toLocaleString(undefined, {maximumFractionDigits:0});
+    document.getElementById('kpi-income').innerText = '₹' + avgIncome.toLocaleString(undefined, {maximumFractionDigits:0});
+    document.getElementById('kpi-loan').innerText = '₹' + avgLoan.toLocaleString(undefined, {maximumFractionDigits:0});
     
     // Common Plotly Layout Rules for Dark Mode
     const layoutBase = {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#f8fafc' },
+        font: { family: 'Outfit', color: '#0f172a' },
         margin: { t: 20, b: 40, l: 40, r: 20 }
     };
 
@@ -338,10 +378,12 @@ function renderPortfolioCharts() {
             (chData['Poor']?.approved / chData['Poor']?.total) * 100 || 0
         ],
         type: 'bar',
-        marker: { color: ['#10b981', '#ef4444'] }
+        width: 0.4,
+        hovertemplate: '%{y:.2f}%<extra></extra>',
+        marker: { color: ['#3b82f6', '#f43f5e'] }
     }], {
         ...layoutBase,
-        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', range: [0, 100], title: 'Approval Rate (%)' },
+        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', range: [0, 100], title: 'Approval Rate (%)' },
         xaxis: { showgrid: false }
     }, {responsive: true});
     
@@ -349,9 +391,14 @@ function renderPortfolioCharts() {
     // Chart 3: Demographics Bar
     // Simplified to Property Area vs Approval Rate
     const propData = data.reduce((acc, row) => {
-        if(!acc[row.PropertyArea]) acc[row.PropertyArea] = { total: 0, approved: 0 };
-        acc[row.PropertyArea].total++;
-        if(row.Loan_Status === 1) acc[row.PropertyArea].approved++;
+        let areaLabel = row.PropertyArea;
+        if (areaLabel === 0 || areaLabel === '0') areaLabel = 'Rural';
+        else if (areaLabel === 1 || areaLabel === '1') areaLabel = 'Semi-Urban';
+        else if (areaLabel === 2 || areaLabel === '2') areaLabel = 'Urban';
+        
+        if(!acc[areaLabel]) acc[areaLabel] = { total: 0, approved: 0 };
+        acc[areaLabel].total++;
+        if(row.Loan_Status === 1) acc[areaLabel].approved++;
         return acc;
     }, {});
     
@@ -360,10 +407,12 @@ function renderPortfolioCharts() {
         x: areas,
         y: areas.map(a => (propData[a].approved / propData[a].total) * 100),
         type: 'bar',
-        marker: { color: '#6366f1' }
+        width: 0.6,
+        hovertemplate: '%{y:.2f}%<extra></extra>',
+        marker: { color: ['#8b5cf6', '#0ea5e9', '#10b981'] }
     }], {
         ...layoutBase,
-        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', range: [0, 100], title: 'Approval Rate (%)' },
+        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', range: [0, 100], title: 'Approval Rate (%)' },
         xaxis: { showgrid: false }
     }, {responsive: true});
 }
@@ -390,9 +439,9 @@ function calculateAmortization() {
     const totalPayout = monthlyPmt * termMonths;
     const totalInterest = totalPayout - principal;
     
-    document.getElementById('out_monthly').innerText = '$' + monthlyPmt.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    document.getElementById('out_principal').innerText = '$' + principal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    document.getElementById('out_interest').innerText = '$' + totalInterest.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('out_monthly').innerText = '₹' + monthlyPmt.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('out_principal').innerText = '₹' + principal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('out_interest').innerText = '₹' + totalInterest.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
     
     // Generate Schedule arrays for plotting
     let balances = [];
@@ -417,11 +466,11 @@ function calculateAmortization() {
         cumInterests.push(cumInt);
         
         tbodyHtml += `
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <tr style="border-bottom: 1px solid rgba(0,0,0,0.1);">
                 <td style="padding: 0.5rem; text-align: left;">${m}</td>
-                <td style="padding: 0.5rem;">$${prinPmt.toFixed(2)}</td>
-                <td style="padding: 0.5rem;">$${intPmt.toFixed(2)}</td>
-                <td style="padding: 0.5rem;">$${currentBalance.toFixed(2)}</td>
+                <td style="padding: 0.5rem;">₹${prinPmt.toFixed(2)}</td>
+                <td style="padding: 0.5rem;">₹${intPmt.toFixed(2)}</td>
+                <td style="padding: 0.5rem;">₹${currentBalance.toFixed(2)}</td>
             </tr>
         `;
         window.amortizationScheduleData.push([m, prinPmt.toFixed(2), intPmt.toFixed(2), currentBalance.toFixed(2)]);
@@ -431,7 +480,7 @@ function calculateAmortization() {
     
     const layoutBase = {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#f8fafc' },
+        font: { family: 'Outfit', color: '#0f172a' },
         margin: { t: 10, b: 30, l: 40, r: 10 }
     };
     
@@ -442,7 +491,7 @@ function calculateAmortization() {
     ], {
         ...layoutBase,
         xaxis: { showgrid: false },
-        yaxis: { gridcolor: 'rgba(255,255,255,0.05)' },
+        yaxis: { gridcolor: 'rgba(0,0,0,0.1)' },
         legend: { orientation: 'h', y: 1.1, x: 0 }
     }, {responsive: true});
     

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,19 +12,20 @@
     <!-- Plotly.js for interactive charting -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 </head>
+
 <body>
     <div id="app-container">
-        
+
         <!-- Authentication View -->
         <div id="auth-view" class="view active glass-card">
             <h1 class="gradient-text">Apex Credit Systems</h1>
             <p class="subtitle">Intelligent Underwriting Engine</p>
-            
+
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
                 <button class="tab-btn" onclick="switchAuthTab('register')">Register</button>
             </div>
-            
+
             <form id="auth-form" onsubmit="handleAuth(event)">
                 <div class="input-group">
                     <label for="username">Analyst ID / Username</label>
@@ -31,7 +33,19 @@
                 </div>
                 <div class="input-group">
                     <label for="password">Passcode</label>
-                    <input type="password" id="password" required autocomplete="current-password">
+                    <input type="password" id="password" required autocomplete="current-password"
+                        oninput="validatePassword()">
+                    <div id="password-checklist" class="hidden"
+                        style="margin-top: 0.5rem; text-align: left; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 8px;">
+                        <ul style="list-style-type: none; padding-left: 0; margin-bottom: 0;">
+                            <li id="req-length" style="color: var(--danger);">✗ At least 8 characters</li>
+                            <li id="req-upper" style="color: var(--danger);">✗ At least 1 uppercase letter</li>
+                            <li id="req-lower" style="color: var(--danger);">✗ At least 1 lowercase letter</li>
+                            <li id="req-number" style="color: var(--danger);">✗ At least 1 number</li>
+                            <li id="req-special" style="color: var(--danger);">✗ At least 1 special character</li>
+                            <li id="req-diff" style="color: var(--danger);">✗ Cannot match username</li>
+                        </ul>
+                    </div>
                 </div>
                 <button type="submit" id="auth-submit-btn" class="primary-btn full-width">Access System</button>
                 <div id="auth-error" class="error-msg"></div>
@@ -44,7 +58,8 @@
             <header class="glass-header">
                 <div>
                     <h2 class="gradient-text" style="font-size: 1.5rem; margin-bottom: 0;">Apex Engine</h2>
-                    <p class="subtitle" style="margin-bottom: 0; font-size: 0.9rem;">Analyst: <span id="user-display"></span></p>
+                    <p class="subtitle" style="margin-bottom: 0; font-size: 0.9rem;">Analyst: <span
+                            id="user-display"></span></p>
                 </div>
                 <div class="main-nav">
                     <button class="nav-btn active" onclick="switchMainTab('eligibility')">🏦 Eligibility Engine</button>
@@ -57,30 +72,32 @@
             <!-- TAB 1: ELIGIBILITY ENGINE -->
             <div id="tab-eligibility" class="main-tab active">
                 <div class="dashboard-grid">
-                    
+
                     <!-- Form Column -->
                     <div class="glass-card form-section">
                         <h3>Applicant Underwriting Intake</h3>
                         <form id="prediction-form" onsubmit="handlePredict(event)">
                             <div class="form-grid">
                                 <div class="input-group">
-                                    <label for="app_income">Applicant Income ($)</label>
-                                    <input type="number" id="app_income" value="6500" required>
+                                    <label for="app_income">Applicant Income (₹)</label>
+                                    <input type="number" id="app_income" value="6500" min="0" required>
                                 </div>
                                 <div class="input-group">
-                                    <label for="co_income">Co-Applicant Income ($)</label>
-                                    <input type="number" id="co_income" value="0" required>
+                                    <label for="co_income">Co-Applicant Income (₹)</label>
+                                    <input type="number" id="co_income" value="0" min="0" required>
                                 </div>
                                 <div class="input-group">
                                     <label for="loan_amount">Loan Amount (thousands)</label>
-                                    <input type="number" id="loan_amount" value="150" required>
+                                    <input type="number" id="loan_amount" value="150" min="10" required>
                                 </div>
                                 <div class="input-group">
                                     <label for="loan_term">Loan Term (Months)</label>
                                     <select id="loan_term">
+                                        <option value="60">60 (5 Years)</option>
                                         <option value="120">120 (10 Years)</option>
                                         <option value="180">180 (15 Years)</option>
                                         <option value="240">240 (20 Years)</option>
+                                        <option value="300">300 (25 Years)</option>
                                         <option value="360" selected>360 (30 Years)</option>
                                     </select>
                                 </div>
@@ -130,7 +147,8 @@
                                     </select>
                                 </div>
                             </div>
-                            <button type="submit" class="primary-btn full-width" style="margin-top: 1rem;">Evaluate Decision Pipeline</button>
+                            <button type="submit" class="primary-btn full-width" style="margin-top: 1rem;">Evaluate
+                                Decision Pipeline</button>
                         </form>
                     </div>
 
@@ -147,18 +165,27 @@
                         <!-- Data Export Section -->
                         <div class="glass-card" id="export-panel">
                             <h3>Data Export & Records</h3>
-                            <button onclick="downloadCSV('/export/my-history')" class="secondary-btn full-width" style="margin-bottom:1rem;">📥 Download My Prediction History</button>
-                            
+                            <button onclick="downloadCSV('/export/my-history')" class="secondary-btn full-width"
+                                style="margin-bottom:1rem;">📥 Download My Prediction History</button>
+
                             <!-- Master Admin Only -->
-                            <div id="admin-panel" class="hidden" style="margin-top: 1.5rem; padding-top:1.5rem; border-top: 1px dashed var(--card-border);">
+                            <div id="admin-panel" class="hidden"
+                                style="margin-top: 1.5rem; padding-top:1.5rem; border-top: 1px dashed var(--card-border);">
                                 <h4 style="color:var(--danger); margin-bottom:1rem;">🛡️ Master Admin Controls</h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 1.5rem;">
-                                    <button onclick="downloadCSV('/admin/export/users')" class="secondary-btn" style="border-color:rgba(239, 68, 68, 0.4); color:#fff; font-size: 0.8rem; padding: 0.5rem;">📥 Users</button>
-                                    <button onclick="downloadCSV('/admin/export/history')" class="secondary-btn" style="border-color:rgba(239, 68, 68, 0.4); color:#fff; font-size: 0.8rem; padding: 0.5rem;">📥 History</button>
-                                    <button onclick="downloadCSV('/admin/export/sessions')" class="secondary-btn" style="border-color:rgba(239, 68, 68, 0.4); color:#fff; font-size: 0.8rem; padding: 0.5rem;">📥 Sessions</button>
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 1.5rem;">
+                                    <button onclick="downloadCSV('/admin/export/users')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
+                                        Users</button>
+                                    <button onclick="downloadCSV('/admin/export/history')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
+                                        History</button>
+                                    <button onclick="downloadCSV('/admin/export/sessions')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
+                                        Sessions</button>
                                 </div>
-                                
-                                <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
+
+                                <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">
                                     <h5 style="margin-bottom: 0.8rem; font-weight: 500;">Access Management</h5>
                                     <div class="user-list-container" id="admin-user-list">
                                         <div class="pulse-icon" style="font-size: 1rem;">Loading users...</div>
@@ -196,7 +223,7 @@
 
                 <div class="chart-grid">
                     <div class="glass-card" style="grid-column: 1 / -1;">
-                        <h4 style="margin-bottom: 1rem;">💳 The Critical Role of Credit History</h4>
+                        <h4 style="margin-bottom: 1rem;">💳 Credit History</h4>
                         <div id="chart-credit" class="plotly-container"></div>
                     </div>
                     <div class="glass-card" style="grid-column: 1 / -1;">
@@ -209,11 +236,13 @@
             <!-- TAB 3: AMORTIZATION PLANNER -->
             <div id="tab-amortization" class="main-tab hidden">
                 <div class="dashboard-grid" style="align-items: stretch; margin-bottom: 2rem;">
-                    <div class="glass-card form-section" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div class="glass-card form-section"
+                        style="display: flex; flex-direction: column; justify-content: space-between;">
                         <h3>⚙️ Simulator Inputs</h3>
                         <div class="input-group">
-                            <label>Loan Principal Amount ($)</label>
-                            <input type="number" id="sim_amount" value="150000" step="5000" onchange="calculateAmortization()">
+                            <label>Loan Principal Amount (₹)</label>
+                            <input type="number" id="sim_amount" value="150000" step="5000"
+                                onchange="calculateAmortization()">
                         </div>
                         <div class="input-group">
                             <label>Repayment Term (Months)</label>
@@ -226,63 +255,79 @@
                         </div>
                         <div class="input-group">
                             <label>Annual Interest Rate (APR %)</label>
-                            <input type="range" id="sim_rate" min="1" max="18" step="0.1" value="6.5" oninput="document.getElementById('rate_val').innerText = this.value + '%'; calculateAmortization();">
-                            <div id="rate_val" style="text-align:right; font-weight:bold; color:var(--primary); margin-top:0.5rem;">6.5%</div>
+                            <input type="range" id="sim_rate" min="1" max="18" step="0.1" value="6.5"
+                                oninput="document.getElementById('rate_val').innerText = this.value + '%'; calculateAmortization();">
+                            <div id="rate_val"
+                                style="text-align:right; font-weight:bold; color:var(--primary); margin-top:0.5rem;">
+                                6.5%</div>
                         </div>
-                        
+
                         <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--card-border);">
                             <div style="margin-bottom: 1rem;">
-                                <span style="color: var(--text-muted); font-size: 0.9rem;">Estimated Monthly Installment</span><br/>
-                                <span id="out_monthly" style="font-size: 1.8rem; font-weight: 700; color: #818cf8;">$0.00</span>
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">Estimated Monthly
+                                    Installment</span><br />
+                                <span id="out_monthly"
+                                    style="font-size: 1.2rem; font-weight: 600; color: #10b981;">₹0.00</span>
                             </div>
                             <div style="margin-bottom: 1rem;">
-                                <span style="color: var(--text-muted); font-size: 0.9rem;">Total Principal Paid</span><br/>
-                                <span id="out_principal" style="font-size: 1.2rem; font-weight: 600; color: var(--text-main);">$0.00</span>
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">Total Principal
+                                    Paid</span><br />
+                                <span id="out_principal"
+                                    style="font-size: 1.2rem; font-weight: 600; color: #6366f1;">₹0.00</span>
                             </div>
                             <div>
-                                <span style="color: var(--text-muted); font-size: 0.9rem;">Total Interest Incurred</span><br/>
-                                <span id="out_interest" style="font-size: 1.2rem; font-weight: 600; color: var(--danger);">$0.00</span>
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">Total Interest
+                                    Incurred</span><br />
+                                <span id="out_interest"
+                                    style="font-size: 1.2rem; font-weight: 600; color: #ef4444;">₹0.00</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="result-section" style="position: relative; top: 0; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div class="result-section"
+                        style="position: relative; top: 0; display: flex; flex-direction: column; justify-content: space-between;">
                         <div class="glass-card" style="margin-bottom:1.5rem">
                             <h4 style="margin-bottom: 1rem;">Balance Over Time</h4>
                             <div id="chart-amort-line" class="plotly-container" style="height:250px"></div>
                         </div>
-                        <div class="glass-card" style="margin-bottom:0; flex: 1; display: flex; flex-direction: column;">
+                        <div class="glass-card"
+                            style="margin-bottom:0; flex: 1; display: flex; flex-direction: column;">
                             <h4 style="margin-bottom: 1rem;">Principal vs Interest</h4>
                             <div id="chart-amort-pie" class="plotly-container" style="height:250px"></div>
                         </div>
                     </div>
                 </div>
                 <div class="glass-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <h4 style="margin: 0;">Repayment Schedule</h4>
-                                <button onclick="downloadAmortizationCSV()" class="secondary-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">📥 Download CSV</button>
-                            </div>
-                            <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 8px;">
-                                <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 0.9rem;">
-                                    <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1; border-bottom: 1px solid var(--card-border);">
-                                        <tr>
-                                            <th style="padding: 0.5rem; text-align: left;">Month</th>
-                                            <th style="padding: 0.5rem;">Principal Paid</th>
-                                            <th style="padding: 0.5rem;">Interest Paid</th>
-                                            <th style="padding: 0.5rem;">Remaining Balance</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="amortization-table-body">
-                                        <!-- Rows generated via JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4 style="margin: 0;">Repayment Schedule</h4>
+                        <button onclick="downloadAmortizationCSV()" class="secondary-btn"
+                            style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">📥 Download CSV</button>
+                    </div>
+                    <div
+                        style="max-height: 300px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 0.9rem;">
+                            <thead
+                                style="position: sticky; top: 0; background: #1e293b; color: #ffffff; z-index: 1; border-bottom: 1px solid var(--card-border);">
+                                <tr>
+                                    <th style="padding: 0.5rem; text-align: left;">Month</th>
+                                    <th style="padding: 0.5rem;">Principal Paid</th>
+                                    <th style="padding: 0.5rem;">Interest Paid</th>
+                                    <th style="padding: 0.5rem;">Remaining Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="amortization-table-body">
+                                <!-- Rows generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
         </div>
     </div>
-    
+
     <script src="/static/app.js"></script>
 </body>
+
 </html>

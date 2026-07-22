@@ -7,16 +7,33 @@ import joblib
 import pandas as pd
 import os
 import io
+import re
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 # Import our custom modules
 import models
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 import auth
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
+
+# --- Temporary Hardwired Admin ---
+def init_temp_admin():
+    db = SessionLocal()
+    try:
+        admin_user = db.query(models.User).filter(models.User.username == "AdminUser1").first()
+        if not admin_user:
+            hashed_password = auth.get_password_hash("Master@1234!")
+            new_admin = models.User(username="AdminUser1", hashed_password=hashed_password, is_master=True)
+            db.add(new_admin)
+            db.commit()
+    finally:
+        db.close()
+
+init_temp_admin()
+# ---------------------------------
 
 app = FastAPI(title="Apex Loan Systems API")
 
@@ -81,6 +98,10 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
+    
+    pwd = user.password
+    if len(pwd) < 8 or not re.search(r"[A-Z]", pwd) or not re.search(r"[a-z]", pwd) or not re.search(r"[0-9]", pwd) or not re.search(r"[^A-Za-z0-9]", pwd) or pwd == user.username:
+        raise HTTPException(status_code=400, detail="Password does not meet security requirements.")
     
     hashed_password = auth.get_password_hash(user.password)
     # New users are NEVER masters by default
