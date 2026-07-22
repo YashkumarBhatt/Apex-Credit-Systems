@@ -23,14 +23,14 @@ models.Base.metadata.create_all(bind=engine)
 def init_temp_admin():
     db = SessionLocal()
     try:
-        admin_user = db.query(models.User).filter(models.User.username == "AdminUser1").first()
+        admin_user = db.query(models.User).filter(models.User.username == "Master_User").first()
         if not admin_user:
-            hashed_password = auth.get_password_hash("Master@1234!")
-            new_admin = models.User(username="AdminUser1", hashed_password=hashed_password, is_master=True)
+            hashed_password = auth.get_password_hash("DataVidwan@2026")
+            new_admin = models.User(username=Master_User", hashed_password=hashed_password, is_master=True)
             db.add(new_admin)
             db.commit()
         else:
-            admin_user.hashed_password = auth.get_password_hash("Master@1234!")
+            admin_user.hashed_password = auth.get_password_hash("DataVidwan@2026")
             db.commit()
     finally:
         db.close()
