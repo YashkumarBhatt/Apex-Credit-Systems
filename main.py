@@ -27,7 +27,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 base_path = os.path.dirname(__file__)
 try:
     preprocessor = joblib.load(os.path.join(base_path, 'loan_preprocessor.joblib'))
-    model = joblib.load(os.path.join(base_path, 'loan_tree_model.joblib'))
+    model = joblib.load(os.path.join(base_path, 'loan_rf_model.joblib'))
     print("Models loaded successfully.")
 except Exception as e:
     print(f"Error loading models: {e}")
