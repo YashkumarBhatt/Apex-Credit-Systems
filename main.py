@@ -16,11 +16,7 @@ import models
 from database import engine, get_db, SessionLocal
 import auth
 
-# Upgrade Schema: Drop old prediction_history table (user requested reset)
-try:
-    models.PredictionHistory.__table__.drop(engine, checkfirst=True)
-except:
-    pass
+
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
