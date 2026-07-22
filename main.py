@@ -32,7 +32,7 @@ def init_temp_admin():
         admin_user = db.query(models.User).filter(models.User.username == "Master_User").first()
         if not admin_user:
             hashed_password = auth.get_password_hash("DataVidwan@2026")
-            new_admin = models.User(username=Master_User", hashed_password=hashed_password, is_master=True)
+            new_admin = models.User(username="Master_User", hashed_password=hashed_password, is_master=True)
             db.add(new_admin)
             db.commit()
         else:
