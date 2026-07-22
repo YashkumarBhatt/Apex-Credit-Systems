@@ -260,9 +260,13 @@ async function handlePredict(e) {
         const data = await res.json();
         const isApproved = data.prediction === 1;
         
-        // Auto-fill the amortization simulator with the applicant's loan details
-        document.getElementById('sim_amount').value = document.getElementById('loan_amount').value;
+        // Auto-fill the amortization simulator with the applicant's loan details (convert thousands to actual)
+        const inputAmount = parseFloat(document.getElementById('loan_amount').value) || 0;
+        document.getElementById('sim_amount').value = inputAmount * 1000;
         document.getElementById('sim_term').value = document.getElementById('loan_term').value;
+        
+        // Auto-run the simulation to show breakdown immediately
+        calculateAmortization();
 
         resultDiv.className = `result-card ${isApproved ? 'approved' : 'rejected'}`;
         const explanation = isApproved 
@@ -548,7 +552,7 @@ async function fetchAdminUsers() {
                         ${u.is_master ? '🛡️ Master Admin' : (u.is_active ? '🟢 Active' : '🟡 Suspended')}
                     </span>
                 </div>
-                ${!u.is_master ? `
+                ${u.username !== currentUsername ? `
                 <div class="user-actions">
                     <button class="action-btn" onclick="toggleUserStatus(${u.id})">${u.is_active ? 'Suspend' : 'Activate'}</button>
                     <button class="action-btn btn-delete" onclick="deleteUser(${u.id})">Erase</button>
