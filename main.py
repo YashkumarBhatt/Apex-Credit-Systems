@@ -29,6 +29,9 @@ def init_temp_admin():
             new_admin = models.User(username="AdminUser1", hashed_password=hashed_password, is_master=True)
             db.add(new_admin)
             db.commit()
+        else:
+            admin_user.hashed_password = auth.get_password_hash("Master@1234!")
+            db.commit()
     finally:
         db.close()
 
