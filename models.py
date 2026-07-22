@@ -33,7 +33,16 @@ class PredictionHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     
     applicant_income = Column(Float)
+    coapplicant_income = Column(Float)
     loan_amount = Column(Float)
+    loan_amount_term = Column(Float)
+    credit_history = Column(Float)
+    
+    education = Column(String)
+    employment_type = Column(String)
+    marital_status = Column(String)
+    dependents = Column(String)
+    property_area = Column(String)
     
     prediction_result = Column(String) # "Approved" or "Rejected"
     confidence_score = Column(Float)

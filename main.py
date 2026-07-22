@@ -16,6 +16,12 @@ import models
 from database import engine, get_db, SessionLocal
 import auth
 
+# Upgrade Schema: Drop old prediction_history table (user requested reset)
+try:
+    models.PredictionHistory.__table__.drop(engine, checkfirst=True)
+except:
+    pass
+
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -174,7 +180,15 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
         history_entry = models.PredictionHistory(
             user_id=current_user.id,
             applicant_income=application.ApplicantIncome,
+            coapplicant_income=application.CoapplicantIncome,
             loan_amount=application.LoanAmount,
+            loan_amount_term=application.Loan_Amount_Term,
+            credit_history=application.CreditHistory,
+            education=application.Education,
+            employment_type=application.EmploymentType,
+            marital_status=application.MaritalStatus,
+            dependents=application.Dependents,
+            property_area=application.PropertyArea,
             prediction_result=status,
             confidence_score=confidence_percentage
         )
@@ -191,9 +205,32 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 @app.get("/portfolio-data")
-def get_portfolio_data(current_user: models.User = Depends(get_current_user)):
+def get_portfolio_data(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     try:
+        # Load baseline CSV
         df = pd.read_csv("loan_approval.csv")
+        
+        # Load DB predictions
+        history = db.query(models.PredictionHistory).all()
+        if history:
+            db_data = []
+            for h in history:
+                db_data.append({
+                    "ApplicantIncome": h.applicant_income,
+                    "CoapplicantIncome": h.coapplicant_income,
+                    "LoanAmount": h.loan_amount,
+                    "Loan_Amount_Term": h.loan_amount_term,
+                    "CreditHistory": h.credit_history,
+                    "Education": h.education,
+                    "EmploymentType": h.employment_type,
+                    "MaritalStatus": h.marital_status,
+                    "Dependents": h.dependents,
+                    "PropertyArea": h.property_area,
+                    "Loan_Status": 1 if h.prediction_result == "Approved" else 0
+                })
+            df_db = pd.DataFrame(db_data)
+            df = pd.concat([df, df_db], ignore_index=True)
+            
         return df.to_dict(orient="records")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Could not load portfolio data.")

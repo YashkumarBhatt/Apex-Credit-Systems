@@ -274,6 +274,10 @@ async function handlePredict(e) {
             <div class="conf-text">Model Confidence: <strong style="color:var(--text-main)">${data.confidence_percentage.toFixed(1)}%</strong></div>
             <div class="explanation">${explanation}</div>
         `;
+        
+        // Refresh the portfolio charts dynamically
+        fetchPortfolioData();
+
     } catch (err) {
         resultDiv.className = 'result-placeholder';
         resultDiv.innerHTML = `<div class="pulse-icon" style="color:var(--danger)">⚠️</div><div class="error-msg" style="font-size:1rem">${err.message}</div>`;
