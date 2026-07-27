@@ -42,6 +42,18 @@ init_temp_admin()
 
 app = FastAPI(title="Apex Loan Systems API")
 
+@app.get("/download-apk")
+def download_apk():
+    apk_path = os.path.join(os.path.dirname(__file__), "apex-credit-app.apk")
+    if os.path.exists(apk_path):
+        return FileResponse(
+            apk_path,
+            media_type="application/vnd.android.package-archive",
+            filename="apex-credit-app.apk"
+        )
+    raise HTTPException(status_code=404, detail="APK file not found")
+
+
 # Security schema
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
