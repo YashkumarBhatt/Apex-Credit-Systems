@@ -753,19 +753,19 @@ function calculateAmortization() {
     const layoutBase = {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 11 : 12 },
-        margin: isMobile ? { t: 40, b: 35, l: 42, r: 15 } : { t: 35, b: 30, l: 45, r: 15 }
+        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 10 : 12 },
+        margin: isMobile ? { t: 30, b: 25, l: 30, r: 8 } : { t: 35, b: 30, l: 45, r: 15 }
     };
     
     // Line Chart
     Plotly.newPlot('chart-amort-line', [
-        { x: months, y: balances, name: 'Remaining Principal', fill: 'tozeroy', mode: 'lines', line: {color: '#6366f1'} },
-        { x: months, y: cumInterests, name: 'Cumulative Interest', mode: 'lines', line: {color: '#ef4444'} }
+        { x: months, y: balances, name: 'Remaining Principal', fill: 'tozeroy', mode: 'lines', line: {color: '#6366f1', width: 2} },
+        { x: months, y: cumInterests, name: 'Cumulative Interest', mode: 'lines', line: {color: '#ef4444', width: 2} }
     ], {
         ...layoutBase,
-        xaxis: { showgrid: false, automargin: true },
-        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', automargin: true },
-        legend: { orientation: 'h', y: 1.28, x: 0, font: { size: isMobile ? 10 : 11 } }
+        xaxis: { showgrid: false, automargin: true, tickfont: { size: isMobile ? 9 : 11 } },
+        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', automargin: true, tickfont: { size: isMobile ? 9 : 11 } },
+        legend: { orientation: 'h', y: 1.25, x: 0, font: { size: isMobile ? 9 : 11 } }
     }, {responsive: true});
     
     // Pie Chart
@@ -774,17 +774,18 @@ function calculateAmortization() {
         values: [principal, totalInterest],
         type: 'pie',
         hole: 0.45,
+        domain: { x: [0, 1], y: [0, 1] },
         marker: { colors: ['#6366f1', '#ef4444'] },
         textinfo: 'percent',
         textposition: 'inside',
-        insidetextfont: { family: 'Outfit', size: 11, color: '#ffffff' },
+        insidetextfont: { family: 'Outfit', size: isMobile ? 10 : 11, color: '#ffffff' },
         hovertemplate: '<b>%{label}</b><br>₹%{value:,.2f} (%{percent})<extra></extra>'
     }], {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 11 : 12 },
-        margin: { t: 15, b: 30, l: 15, r: 15 },
-        legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: isMobile ? 10 : 11 } }
+        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 10 : 12 },
+        margin: isMobile ? { t: 5, b: 25, l: 5, r: 5 } : { t: 15, b: 30, l: 15, r: 15 },
+        legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: isMobile ? 9 : 11 } }
     }, {responsive: true});
 
     setTimeout(() => {

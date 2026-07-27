@@ -572,25 +572,43 @@ input[type="range"]:focus::-webkit-slider-thumb {
     }
 }
 
+/* Universal Plotly SVG Container Scaling for Mobile */
+.plotly-container .js-plotly-plot,
+.plotly-container .plot-container,
+.plotly-container .svg-container,
+.plotly-container svg {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
 @media (max-width: 600px) {
     .result-section {
         min-width: 0 !important;
         width: 100% !important;
+        overflow: hidden !important;
     }
     .plotly-container {
-        height: 280px !important;
+        height: 240px !important;
         min-width: 0 !important;
         width: 100% !important;
+        overflow: hidden !important;
+    }
+    .glass-card {
+        padding: 0.85rem 0.6rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        overflow: hidden !important;
     }
     input[type="range"]::-webkit-slider-thumb {
         width: 16px;
         height: 16px;
     }
     table {
-        font-size: 0.78rem !important;
+        font-size: 0.75rem !important;
     }
     td, th {
-        padding: 0.35rem 0.25rem !important;
+        padding: 0.35rem 0.2rem !important;
     }
 }
 
