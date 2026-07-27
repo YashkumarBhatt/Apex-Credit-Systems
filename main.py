@@ -42,8 +42,8 @@ init_temp_admin()
 
 app = FastAPI(title="Apex Loan Systems API")
 
-@app.get("/download-apk")
-def download_apk():
+@app.api_route("/download-apk", methods=["GET", "HEAD"])
+def download_apk(request: Request):
     apk_path = os.path.join(os.path.dirname(__file__), "apex-credit-app.apk")
     if os.path.exists(apk_path):
         return FileResponse(
@@ -52,6 +52,7 @@ def download_apk():
             filename="apex-credit-app.apk"
         )
     raise HTTPException(status_code=404, detail="APK file not found")
+
 
 
 # Security schema
