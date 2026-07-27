@@ -763,8 +763,17 @@ function calculateAmortization() {
         { x: months, y: cumInterests, name: 'Cumulative Interest', mode: 'lines', line: {color: '#ef4444', width: 2} }
     ], {
         ...layoutBase,
-        xaxis: { showgrid: false, automargin: true, tickfont: { size: isMobile ? 9 : 11 } },
-        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', automargin: true, tickfont: { size: isMobile ? 9 : 11 } },
+        xaxis: { 
+            showgrid: false, 
+            automargin: true, 
+            nticks: isMobile ? 5 : 8,
+            tickfont: { size: isMobile ? 9 : 11 } 
+        },
+        yaxis: { 
+            gridcolor: 'rgba(0,0,0,0.1)', 
+            automargin: true, 
+            tickfont: { size: isMobile ? 9 : 11 } 
+        },
         legend: { orientation: 'h', y: 1.25, x: 0, font: { size: isMobile ? 9 : 11 } }
     }, {responsive: true});
     
@@ -774,7 +783,7 @@ function calculateAmortization() {
         values: [principal, totalInterest],
         type: 'pie',
         hole: 0.45,
-        domain: { x: [0, 1], y: [0, 1] },
+        domain: { x: [0.1, 0.9], y: [0.15, 0.95] },
         marker: { colors: ['#6366f1', '#ef4444'] },
         textinfo: 'percent',
         textposition: 'inside',
@@ -784,7 +793,7 @@ function calculateAmortization() {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 10 : 12 },
-        margin: isMobile ? { t: 5, b: 25, l: 5, r: 5 } : { t: 15, b: 30, l: 15, r: 15 },
+        margin: { t: 5, b: 30, l: 5, r: 5 },
         legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: isMobile ? 9 : 11 } }
     }, {responsive: true});
 
