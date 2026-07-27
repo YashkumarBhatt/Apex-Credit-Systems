@@ -749,10 +749,12 @@ function calculateAmortization() {
     
     document.getElementById('amortization-table-body').innerHTML = tbodyHtml;
     
+    const isMobile = window.innerWidth <= 600;
     const layoutBase = {
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a' },
-        margin: { t: 10, b: 30, l: 40, r: 10 }
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 11 : 12 },
+        margin: isMobile ? { t: 40, b: 35, l: 42, r: 15 } : { t: 35, b: 30, l: 45, r: 15 }
     };
     
     // Line Chart
@@ -761,9 +763,9 @@ function calculateAmortization() {
         { x: months, y: cumInterests, name: 'Cumulative Interest', mode: 'lines', line: {color: '#ef4444'} }
     ], {
         ...layoutBase,
-        xaxis: { showgrid: false },
-        yaxis: { gridcolor: 'rgba(0,0,0,0.1)' },
-        legend: { orientation: 'h', y: 1.1, x: 0 }
+        xaxis: { showgrid: false, automargin: true },
+        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', automargin: true },
+        legend: { orientation: 'h', y: 1.28, x: 0, font: { size: isMobile ? 10 : 11 } }
     }, {responsive: true});
     
     // Pie Chart
@@ -771,14 +773,26 @@ function calculateAmortization() {
         labels: ['Principal', 'Total Interest'],
         values: [principal, totalInterest],
         type: 'pie',
-        hole: 0.4,
+        hole: 0.45,
         marker: { colors: ['#6366f1', '#ef4444'] },
-        textinfo: 'none'
+        textinfo: 'percent',
+        textposition: 'inside',
+        insidetextfont: { family: 'Outfit', size: 11, color: '#ffffff' },
+        hovertemplate: '<b>%{label}</b><br>₹%{value:,.2f} (%{percent})<extra></extra>'
     }], {
-        ...layoutBase,
-        margin: { t: 0, b: 0, l: 0, r: 0 },
-        legend: { orientation: 'h', y: 0, x: 0 }
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 11 : 12 },
+        margin: { t: 15, b: 30, l: 15, r: 15 },
+        legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: isMobile ? 10 : 11 } }
     }, {responsive: true});
+
+    setTimeout(() => {
+        try {
+            Plotly.Plots.resize('chart-amort-line');
+            Plotly.Plots.resize('chart-amort-pie');
+        } catch(e) {}
+    }, 100);
 }
 
 function downloadAmortizationCSV() {
