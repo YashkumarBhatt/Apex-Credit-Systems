@@ -98,7 +98,7 @@ function showDashboard() {
 function switchMainTab(tabName) {
     // Update active nav button
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    if (event && event.currentTarget) event.currentTarget.classList.add('active');
+    if (typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('active');
     
     // Update active tab container
     document.querySelectorAll('.main-tab').forEach(tab => tab.classList.remove('active', 'hidden'));
@@ -116,7 +116,7 @@ function switchMainTab(tabName) {
             fetchPortfolioData();
         } else {
             setTimeout(() => {
-                renderPortfolioDashboard(portfolioDataCache);
+                renderPortfolioCharts();
                 try {
                     Plotly.Plots.resize('chart-credit');
                     Plotly.Plots.resize('chart-dti');
