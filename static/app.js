@@ -851,3 +851,14 @@ async function deleteUser(userId) {
         fetchAdminUsers();
     } catch(e) { alert(e.message); }
 }
+
+/* ==============================
+   PWA SERVICE WORKER REGISTRATION
+============================== */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+            .then(reg => console.log('[PWA] Service Worker registered successfully with scope:', reg.scope))
+            .catch(err => console.warn('[PWA] Service Worker registration failed:', err));
+    });
+}
