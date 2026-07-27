@@ -234,13 +234,30 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
                 status = "Counter-Offer Proposed"
                 tier = "Tier 2B - Counter-Offer Proposed"
                 confidence_percentage = round(prob_cap * 100, 2)
-                literal_req_loan = application.LoanAmount * 1000 if application.LoanAmount < 1000 else application.LoanAmount
-                recommended_max_loan = round((total_income * 2.5) / 5000) * 5000
-                if recommended_max_loan < 10000:
-                    recommended_max_loan = 10000
-                counter_offer_amount = recommended_max_loan
-                conditions = [f"Loan request adjusted to capacity threshold of ₹{recommended_max_loan:,.0f}"]
-                actionable_notes = f"Requested ₹{literal_req_loan:,.0f} exceeds risk limit. Pre-approved for ₹{recommended_max_loan:,.0f}."
+                literal_req_loan = float(application.LoanAmount * 1000 if application.LoanAmount < 1000 else application.LoanAmount)
+                
+                # Calculate Max Capacity based on Total Income (2.5x total monthly income)
+                max_income_capacity = round((total_income * 2.5) / 5000) * 5000
+                if max_income_capacity < 10000:
+                    max_income_capacity = 10000
+                    
+                # Enforce strict banking rule: Counter-Offer MUST BE <= Requested Loan
+                if literal_req_loan > max_income_capacity:
+                    # Case A: Requested loan exceeds income capacity threshold
+                    counter_offer_amount = max_income_capacity
+                    conditions = [f"Loan request adjusted to income capacity threshold of ₹{counter_offer_amount:,.0f}"]
+                    actionable_notes = f"Requested ₹{literal_req_loan:,.0f} exceeds capacity threshold of ₹{max_income_capacity:,.0f}. Pre-approved for ₹{counter_offer_amount:,.0f}."
+                else:
+                    # Case B: Requested loan is within max capacity, but thin-file risk requires haircut
+                    risk_haircut_factor = max(0.50, min(0.80, prob_cap))
+                    recommended_reduced = round((literal_req_loan * risk_haircut_factor) / 1000) * 1000
+                    if recommended_reduced >= literal_req_loan:
+                        recommended_reduced = round((literal_req_loan * 0.75) / 1000) * 1000
+                    if recommended_reduced < 5000:
+                        recommended_reduced = 5000
+                    counter_offer_amount = recommended_reduced
+                    conditions = [f"Loan request adjusted for thin-file risk rating ({confidence_percentage}%)"]
+                    actionable_notes = f"Requested ₹{literal_req_loan:,.0f} adjusted for risk profile. Pre-approved for ₹{counter_offer_amount:,.0f}."
             else:
                 prediction_val = 0
                 status = "Rejected"
