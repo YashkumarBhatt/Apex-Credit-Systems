@@ -102,14 +102,29 @@ label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--t
 
 input, select {
     width: 100%;
+    height: 48px;
     background: #ffffff;
     border: 1px solid #cbd5e1;
     color: var(--text-main);
-    padding: 0.9rem 1rem;
+    padding: 0 1rem;
     border-radius: 12px;
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    box-sizing: border-box;
     transition: all 0.3s ease;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* Uniform Number Input Spinners Removal */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
 }
 
 input:focus, select:focus {
@@ -357,4 +372,57 @@ select option { background: #ffffff; color: var(--text-main); }
 }
 .action-btn:hover { background: rgba(0,0,0,0.05); }
 .action-btn.btn-delete:hover { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #ef4444;}
+
+/* =========================================
+   RANGE / SLIDER INPUT — APR Selector
+========================================= */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--primary) 0%, var(--primary) 36%, #cbd5e1 36%, #cbd5e1 100%);
+    outline: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 2px var(--primary), 0 2px 6px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2), 0 2px 8px rgba(0,0,0,0.25);
+    transform: scale(1.12);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 2px var(--primary);
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+    height: 6px;
+    border-radius: 4px;
+    background: #cbd5e1;
+}
+
+input[type="range"]:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.25);
+}
 

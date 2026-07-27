@@ -87,19 +87,12 @@
                                     <input type="number" id="co_income" value="0" min="0" required>
                                 </div>
                                 <div class="input-group">
-                                    <label for="loan_amount">Loan Amount (thousands)</label>
-                                    <input type="number" id="loan_amount" value="150" min="10" required>
+                                    <label for="loan_amount">Requested Loan Amount (₹)</label>
+                                    <input type="number" id="loan_amount" value="150000" min="0" step="1" placeholder="e.g. 150000" required>
                                 </div>
                                 <div class="input-group">
-                                    <label for="loan_term">Loan Term (Months)</label>
-                                    <select id="loan_term">
-                                        <option value="60">60 (5 Years)</option>
-                                        <option value="120">120 (10 Years)</option>
-                                        <option value="180">180 (15 Years)</option>
-                                        <option value="240">240 (20 Years)</option>
-                                        <option value="300">300 (25 Years)</option>
-                                        <option value="360" selected>360 (30 Years)</option>
-                                    </select>
+                                    <label for="loan_term_years">Repayment Tenure (Years)</label>
+                                    <input type="number" id="loan_term_years" value="30" min="1" max="40" step="1" placeholder="e.g. 11 or 30" required>
                                 </div>
                                 <div class="input-group" style="grid-column: 1 / -1;">
                                     <label for="credit_history">Credit History Status</label>
@@ -223,15 +216,15 @@
 
                 <div class="chart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="glass-card">
-                        <h4 style="margin-bottom: 1rem;">💳 Credit Underwriting Track Outcomes</h4>
+                        <h4 style="margin-bottom: 1rem; font-weight: 600;">💳 Credit Underwriting Track Outcomes</h4>
                         <div id="chart-credit" class="plotly-container" style="min-height: 380px;"></div>
                     </div>
                     <div class="glass-card">
-                        <h4 style="margin-bottom: 1rem;">📊 Debt-to-Income (DTI) Risk Tier Breakdown</h4>
+                        <h4 style="margin-bottom: 1rem; font-weight: 600;">📊 Debt-to-Income (DTI) Risk Tier Breakdown</h4>
                         <div id="chart-dti" class="plotly-container" style="min-height: 380px;"></div>
                     </div>
                     <div class="glass-card" style="grid-column: 1 / -1;">
-                        <h4 style="margin-bottom: 1rem;">🏙️ Property Collateral Liquidity Distribution</h4>
+                        <h4 style="margin-bottom: 1rem; font-weight: 600;">🏙️ Property Area Collateral Distribution</h4>
                         <div id="chart-demo" class="plotly-container" style="min-height: 350px;"></div>
                     </div>
                 </div>
@@ -249,13 +242,9 @@
                                 onchange="calculateAmortization()">
                         </div>
                         <div class="input-group">
-                            <label>Repayment Term (Months)</label>
-                            <select id="sim_term" onchange="calculateAmortization()">
-                                <option value="120">120 (10 Years)</option>
-                                <option value="180">180 (15 Years)</option>
-                                <option value="240">240 (20 Years)</option>
-                                <option value="360" selected>360 (30 Years)</option>
-                            </select>
+                            <label>Repayment Tenure (Years)</label>
+                            <input type="number" id="sim_term_years" value="30" min="1" max="40" step="1"
+                                placeholder="e.g. 11 or 30" oninput="calculateAmortization()">
                         </div>
                         <div class="input-group">
                             <label>Annual Interest Rate (APR %)</label>

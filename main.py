@@ -222,12 +222,13 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
                 status = "Counter-Offer Proposed"
                 tier = "Tier 2B - Counter-Offer Proposed"
                 confidence_percentage = round(prob_cap * 100, 2)
+                literal_req_loan = application.LoanAmount * 1000 if application.LoanAmount < 1000 else application.LoanAmount
                 recommended_max_loan = round((total_income * 2.5) / 5000) * 5000
                 if recommended_max_loan < 10000:
                     recommended_max_loan = 10000
                 counter_offer_amount = recommended_max_loan
-                conditions = [f"Loan request adjusted to capacity threshold of ${recommended_max_loan:,.0f}"]
-                actionable_notes = f"Requested ${application.LoanAmount:,.0f} exceeds risk limit. Pre-approved for ${recommended_max_loan:,.0f}."
+                conditions = [f"Loan request adjusted to capacity threshold of ₹{recommended_max_loan:,.0f}"]
+                actionable_notes = f"Requested ₹{literal_req_loan:,.0f} exceeds risk limit. Pre-approved for ₹{recommended_max_loan:,.0f}."
             else:
                 prediction_val = 0
                 status = "Rejected"

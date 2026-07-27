@@ -98,7 +98,7 @@ function showDashboard() {
 function switchMainTab(tabName) {
     // Update active nav button
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    if (event && event.currentTarget) event.currentTarget.classList.add('active');
     
     // Update active tab container
     document.querySelectorAll('.main-tab').forEach(tab => tab.classList.remove('active', 'hidden'));
@@ -111,8 +111,19 @@ function switchMainTab(tabName) {
     setTimeout(() => activeTab.classList.add('active'), 10);
     
     // Trigger Lazy-load content based on tab
-    if(tabName === 'portfolio' && !portfolioDataCache) {
-        fetchPortfolioData();
+    if(tabName === 'portfolio') {
+        if (!portfolioDataCache) {
+            fetchPortfolioData();
+        } else {
+            setTimeout(() => {
+                renderPortfolioDashboard(portfolioDataCache);
+                try {
+                    Plotly.Plots.resize('chart-credit');
+                    Plotly.Plots.resize('chart-dti');
+                    Plotly.Plots.resize('chart-demo');
+                } catch(e) {}
+            }, 60);
+        }
     } else if(tabName === 'amortization') {
         calculateAmortization();
     }
@@ -222,20 +233,31 @@ async function handleAuth(e) {
 ============================== */
 async function handlePredict(e) {
     e.preventDefault();
-    const resultDiv = document.getElementById('result-display');
+    if (!authToken) return;
+    
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.textContent;
-    submitBtn.textContent = 'Analyzing Variables...';
+    submitBtn.textContent = 'Evaluating Algorithmic Pipeline...';
     submitBtn.disabled = true;
+
+    const resultDiv = document.getElementById('result-display');
     
     resultDiv.innerHTML = '<div class="pulse-icon">⚙️</div><div class="conf-text" style="color:var(--text-main)">Querying ML Model...</div>';
     resultDiv.className = 'result-placeholder';
+    resultDiv.style.cssText = '';
     
+    const rawLoanInput = parseFloat(document.getElementById('loan_amount').value) || 0;
+    const literalLoanAmount = rawLoanInput < 1000 ? rawLoanInput * 1000 : rawLoanInput;
+    const scaledLoanForML = rawLoanInput >= 1000 ? rawLoanInput / 1000 : rawLoanInput;
+
+    const termYearsInput = parseFloat(document.getElementById('loan_term_years').value) || 30;
+    const termMonths = termYearsInput > 40 ? Math.round(termYearsInput) : Math.round(termYearsInput * 12);
+
     const payload = {
-        ApplicantIncome: parseFloat(document.getElementById('app_income').value),
-        CoapplicantIncome: parseFloat(document.getElementById('co_income').value),
-        LoanAmount: parseFloat(document.getElementById('loan_amount').value),
-        Loan_Amount_Term: parseFloat(document.getElementById('loan_term').value),
+        ApplicantIncome: parseFloat(document.getElementById('app_income').value) || 0,
+        CoapplicantIncome: parseFloat(document.getElementById('co_income').value) || 0,
+        LoanAmount: scaledLoanForML,
+        Loan_Amount_Term: termMonths,
         CreditHistory: parseFloat(document.getElementById('credit_history').value),
         Education: document.getElementById('education').value,
         EmploymentType: document.getElementById('employment').value,
@@ -266,53 +288,113 @@ async function handlePredict(e) {
         const conditions = data.conditions || [];
         const counterAmt = data.counter_offer_amount;
         
-        // Auto-fill the amortization simulator with the applicant's loan details (convert thousands to actual)
-        const inputAmount = parseFloat(document.getElementById('loan_amount').value) || 0;
-        document.getElementById('sim_amount').value = (counterAmt || (inputAmount * 1000));
-        document.getElementById('sim_term').value = document.getElementById('loan_term').value;
+        // Auto-fill the amortization simulator with literal loan amount & tenure years
+        document.getElementById('sim_amount').value = counterAmt ? counterAmt : literalLoanAmount;
+        document.getElementById('sim_term_years').value = termYearsInput;
         
         // Auto-run the simulation to show breakdown immediately
         calculateAmortization();
 
-        let cardStyleClass = 'approved';
-        if (status === 'Conditional Approval') cardStyleClass = 'approved';
-        else if (status === 'Counter-Offer Proposed') cardStyleClass = 'approved';
-        else if (!isApproved) cardStyleClass = 'rejected';
+        // ── Accent colour by decision type ──
+        let accentColor = '#10b981';   // Approved  → emerald
+        if (status === 'Counter-Offer Proposed') accentColor = '#c9922a';  // amber
+        else if (status === 'Conditional Approval') accentColor = '#3b82f6'; // blue
+        else if (!isApproved) accentColor = '#ef4444';                       // red
 
-        resultDiv.className = `result-card ${cardStyleClass}`;
-        
+        // ── Card style: flat inside outer glass-card, only left accent border ──
+        resultDiv.className = 'result-card';
+        resultDiv.style.cssText = `
+            background:transparent;
+            border:none;
+            border-left:4px solid ${accentColor};
+            border-radius:0;
+            text-align:left;
+            padding:0.5rem 0 0.5rem 1.25rem;
+            box-shadow:none;
+            animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        `;
+
+        // ── Score & threshold bar ──
+        const scorePercent = Math.min(data.confidence_percentage, 100);
+        const RISK_THRESHOLD = 75; // fixed underwriting threshold
+
+        // ── Loan comparison boxes (only when counter offer exists) ──
+        let loanComparisonHTML = '';
+        if (counterAmt) {
+            loanComparisonHTML = `
+                <div style="display:flex;align-items:stretch;gap:0.6rem;margin:1.25rem 0;">
+                    <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.1rem;">
+                        <div style="font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.5rem;">Requested</div>
+                        <div style="font-size:1.4rem;font-weight:800;color:#64748b;letter-spacing:-0.02em;">₹${literalLoanAmount.toLocaleString('en-IN')}</div>
+                        <div style="font-size:0.75rem;color:#ef4444;margin-top:0.35rem;font-weight:600;">✗ Exceeds risk limit</div>
+                    </div>
+                    <div style="display:flex;align-items:center;padding:0 0.25rem;color:#94a3b8;font-size:1.3rem;flex-shrink:0;">→</div>
+                    <div style="flex:1;background:#fef9ee;border:1.5px solid ${accentColor};border-radius:10px;padding:1rem 1.1rem;">
+                        <div style="font-size:0.6rem;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.5rem;">Pre-Approved Limit</div>
+                        <div style="font-size:1.4rem;font-weight:800;color:${accentColor};letter-spacing:-0.02em;">₹${counterAmt.toLocaleString('en-IN')}</div>
+                        <div style="font-size:0.75rem;color:#10b981;margin-top:0.35rem;font-weight:600;">✓ Within capacity</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ── Conditions list ──
         let conditionsHTML = '';
         if (conditions.length > 0) {
             conditionsHTML = `
-                <div style="margin-top:0.8rem; text-align:left; background:rgba(255,255,255,0.15); padding:0.8rem; border-radius:8px;">
-                    <div style="font-weight:600; font-size:0.85rem; margin-bottom:0.3rem;">📋 Mandatory Conditions:</div>
-                    <ul style="margin:0; padding-left:1.2rem; font-size:0.85rem;">
-                        ${conditions.map(c => `<li>${c}</li>`).join('')}
+                <div style="padding-top:1rem;border-top:1px solid #e8ecf2;margin-top:1rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
+                        <span style="font-size:1rem;">📋</span>
+                        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.13em;color:#475569;">Underwriting Conditions</span>
+                    </div>
+                    <ul style="margin:0;padding:0;list-style:none;">
+                        ${conditions.map(c => `
+                            <li style="display:flex;align-items:flex-start;gap:0.55rem;margin-bottom:0.45rem;font-size:0.855rem;color:#475569;line-height:1.5;">
+                                <span style="color:${accentColor};margin-top:0.25rem;flex-shrink:0;font-size:0.6rem;">■</span>
+                                <span>${c}</span>
+                            </li>`).join('')}
                     </ul>
                 </div>
             `;
         }
-        
-        let counterHTML = '';
-        if (counterAmt) {
-            counterHTML = `
-                <div style="margin-top:0.8rem; background:rgba(59,130,246,0.15); padding:0.8rem; border-radius:8px; text-align:center;">
-                    <div style="font-size:0.85rem; font-weight:600;">💡 Pre-Approved Counter-Offer:</div>
-                    <div style="font-size:1.3rem; font-weight:700; color:#3b82f6;">$${counterAmt.toLocaleString()}</div>
-                </div>
-            `;
-        }
+
+        // ── Format status for display (Title Case, not ALL CAPS) ──
+        const displayStatus = status === 'APPROVED' ? 'Approved' : status === 'REJECTED' ? 'Rejected' : status;
+        const displayTier = tier.replace(' - ', ' · ').toUpperCase();
 
         resultDiv.innerHTML = `
-            <div style="font-size:0.8rem; font-weight:600; letter-spacing:0.5px; opacity:0.8; margin-bottom:0.2rem;">${track.toUpperCase()}</div>
-            <div class="status-text">${status.toUpperCase()}</div>
-            <div style="font-size:0.9rem; font-weight:600; color:var(--text-main); margin-top:0.2rem;">${tier}</div>
-            <div class="conf-text" style="margin-top:0.4rem;">Score: <strong style="color:var(--text-main)">${data.confidence_percentage.toFixed(1)}%</strong></div>
-            <div class="explanation" style="margin-top:0.6rem;">${notes}</div>
-            ${counterHTML}
+            <!-- Track Badge -->
+            <div style="display:inline-block;font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;border:1.5px solid #cbd5e1;color:#475569;background:#f8fafc;padding:0.28rem 0.85rem;border-radius:20px;margin-bottom:1rem;">${track}</div>
+
+            <!-- Status -->
+            <div style="font-size:1.85rem;font-weight:800;color:${accentColor};line-height:1.15;margin-bottom:0.35rem;letter-spacing:-0.02em;">${displayStatus}</div>
+
+            <!-- Tier -->
+            <div style="font-size:0.65rem;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:1.25rem;">${displayTier}</div>
+
+            <!-- Score Bar -->
+            <div style="margin-bottom:1.1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.4rem;">
+                    <span style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Financial Capacity Score</span>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Risk Threshold</div>
+                        <div style="font-size:1.05rem;font-weight:800;color:${accentColor};">${data.confidence_percentage.toFixed(1)}%</div>
+                    </div>
+                </div>
+                <div style="position:relative;height:8px;background:#e2e8f0;border-radius:4px;overflow:visible;">
+                    <div style="height:100%;width:${scorePercent}%;background:${accentColor};border-radius:4px;"></div>
+                    <div style="position:absolute;left:${RISK_THRESHOLD}%;top:-5px;bottom:-5px;width:2px;border-left:2px dashed #ef4444;transform:translateX(-50%);"></div>
+                </div>
+                <div style="font-size:0.76rem;color:#64748b;font-style:italic;margin-top:0.55rem;line-height:1.5;">${notes}</div>
+            </div>
+
+            <!-- Loan Comparison -->
+            ${loanComparisonHTML}
+
+            <!-- Conditions -->
             ${conditionsHTML}
         `;
-        
+
         // Refresh the portfolio charts dynamically
         fetchPortfolioData();
 
@@ -397,66 +479,202 @@ function renderPortfolioCharts() {
     document.getElementById('kpi-income').innerText = '₹' + avgIncome.toLocaleString(undefined, {maximumFractionDigits:0});
     document.getElementById('kpi-loan').innerText = '₹' + avgLoan.toLocaleString(undefined, {maximumFractionDigits:0});
     
-    // Common Plotly Layout Rules for Dark Mode
+    // Common Plotly Layout Rules
     const layoutBase = {
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a' },
-        margin: { t: 20, b: 40, l: 40, r: 20 }
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Outfit', color: '#1e293b', size: 13 },
+        margin: { t: 45, b: 60, l: 80, r: 20 },
+        legend: { orientation: 'h', y: 1.18, x: 0, font: { size: 12 } },
+        bargap: 0.25,
+        hoverlabel: {
+            bgcolor: '#ffffff',
+            bordercolor: '#e2e8f0',
+            font: { family: 'Outfit', color: '#1e293b', size: 13 }
+        }
     };
 
-    // Chart 1: Credit History Bar
-    const chData = data.reduce((acc, row) => {
-        const key = row.CreditHistory === 1.0 ? 'Excellent' : 'Poor';
-        if(!acc[key]) acc[key] = { total: 0, approved: 0 };
-        acc[key].total++;
-        if(row.Loan_Status === 1) acc[key].approved++;
-        return acc;
-    }, {});
-    
-    Plotly.newPlot('chart-credit', [{
-        x: ['Excellent (1.0)', 'Poor (0.0)'],
-        y: [
-            (chData['Excellent']?.approved / chData['Excellent']?.total) * 100 || 0,
-            (chData['Poor']?.approved / chData['Poor']?.total) * 100 || 0
-        ],
-        type: 'bar',
-        width: 0.4,
-        hovertemplate: '%{y:.2f}%<extra></extra>',
-        marker: { color: ['#3b82f6', '#f43f5e'] }
-    }], {
-        ...layoutBase,
-        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', range: [0, 100], title: 'Approval Rate (%)' },
-        xaxis: { showgrid: false }
-    }, {responsive: true});
-    
-    // Removed Chart 2 (Scatter) as requested
-    // Chart 3: Demographics Bar
-    // Simplified to Property Area vs Approval Rate
-    const propData = data.reduce((acc, row) => {
-        let areaLabel = row.PropertyArea;
-        if (areaLabel === 0 || areaLabel === '0') areaLabel = 'Rural';
-        else if (areaLabel === 1 || areaLabel === '1') areaLabel = 'Semi-Urban';
-        else if (areaLabel === 2 || areaLabel === '2') areaLabel = 'Urban';
+    // -------------------------------------------------------------
+    // CHART 1: Credit History Grouped 4-Bar Volume Chart
+    // -------------------------------------------------------------
+    const categories = ['Established (1.0)', 'No / Poor History (0.0)'];
+    let approvedCounts = [0, 0];
+    let rejectedCounts = [0, 0];
+
+    data.forEach(row => {
+        const isEstablished = Number(row.CreditHistory) === 1;
+        const isApproved = Number(row.Loan_Status) === 1;
         
-        if(!acc[areaLabel]) acc[areaLabel] = { total: 0, approved: 0 };
-        acc[areaLabel].total++;
-        if(row.Loan_Status === 1) acc[areaLabel].approved++;
-        return acc;
-    }, {});
-    
-    const areas = Object.keys(propData);
-    Plotly.newPlot('chart-demo', [{
-        x: areas,
-        y: areas.map(a => (propData[a].approved / propData[a].total) * 100),
+        if (isEstablished) {
+            if (isApproved) approvedCounts[0]++;
+            else rejectedCounts[0]++;
+        } else {
+            if (isApproved) approvedCounts[1]++;
+            else rejectedCounts[1]++;
+        }
+    });
+
+    const maxCredit = Math.max(...approvedCounts, ...rejectedCounts);
+
+    const traceApproved = {
+        name: 'Approved / Conditional',
+        x: categories,
+        y: approvedCounts,
         type: 'bar',
-        width: 0.6,
-        hovertemplate: '%{y:.2f}%<extra></extra>',
-        marker: { color: ['#8b5cf6', '#0ea5e9', '#10b981'] }
-    }], {
+        width: 0.3,
+        marker: { color: '#10b981' },
+        hovertemplate: '%{y} Approved<extra></extra>'
+    };
+
+    const traceRejected = {
+        name: 'Rejected',
+        x: categories,
+        y: rejectedCounts,
+        type: 'bar',
+        width: 0.3,
+        marker: { color: '#ef4444' },
+        hovertemplate: '%{y} Rejected<extra></extra>'
+    };
+
+    Plotly.newPlot('chart-credit', [traceApproved, traceRejected], {
         ...layoutBase,
-        yaxis: { gridcolor: 'rgba(0,0,0,0.1)', range: [0, 100], title: 'Approval Rate (%)' },
-        xaxis: { showgrid: false }
-    }, {responsive: true});
+        barmode: 'group',
+        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxCredit * 1.25], showgrid: true },
+        xaxis: { title: 'Credit History Status', showgrid: false }
+    }, { responsive: true });
+
+    // -------------------------------------------------------------
+    // CHART 2: Debt-to-Income (DTI) Risk Tier Distribution
+    // -------------------------------------------------------------
+    // CHART 2: Debt-to-Income (DTI) Risk Tier Breakdown
+    // -------------------------------------------------------------
+    const dtiTiers = ['Low Risk  ≤20%', 'Moderate  20–35%', 'High Risk  >35%'];
+    let dtiApproved = [0, 0, 0];
+    let dtiRejected = [0, 0, 0];
+
+    data.forEach(row => {
+        const rawLoan = row.LoanAmount || 0;
+        // CSV stores LoanAmount in thousands; values <1000 are already in thousands
+        const loanInThousands = rawLoan < 1000 ? rawLoan : rawLoan / 1000;
+        const annualIncome = ((row.ApplicantIncome || 0) + (row.CoapplicantIncome || 0)) || 1;
+        
+        // Monthly debt estimate (EMI proxy) / Monthly Income
+        const estimatedMonthlyEmi = (loanInThousands * 1000) / 240; // assume 20-yr term for ratio
+        const monthlyIncome = annualIncome / 12;
+        const approxDti = monthlyIncome > 0 ? (estimatedMonthlyEmi / monthlyIncome) * 100 : 0;
+        
+        const isApproved = Number(row.Loan_Status) === 1;
+        let idx = 0;
+        if (approxDti <= 20) idx = 0;
+        else if (approxDti <= 35) idx = 1;
+        else idx = 2;
+
+        if (isApproved) dtiApproved[idx]++;
+        else dtiRejected[idx]++;
+    });
+
+    const maxDti = Math.max(...dtiApproved, ...dtiRejected);
+
+    const traceDtiApp = {
+        name: 'Approved / Conditional',
+        x: dtiTiers,
+        y: dtiApproved,
+        type: 'bar',
+        width: 0.2,
+        marker: { color: '#3b82f6' },
+        hovertemplate: '%{y} Approved<extra></extra>'
+    };
+
+    const traceDtiRej = {
+        name: 'Rejected',
+        x: dtiTiers,
+        y: dtiRejected,
+        type: 'bar',
+        width: 0.2,
+        marker: { color: '#f97316' },
+        hovertemplate: '%{y} Rejected<extra></extra>'
+    };
+
+    Plotly.newPlot('chart-dti', [traceDtiApp, traceDtiRej], {
+        ...layoutBase,
+        barmode: 'group',
+        autosize: true,
+        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxDti * 1.25], showgrid: true },
+        xaxis: { title: 'DTI Risk Level', showgrid: false, automargin: true }
+    }, { responsive: true });
+
+    // -------------------------------------------------------------
+    // CHART 3: Property Area Collateral Distribution
+    // -------------------------------------------------------------
+    const areas = ['Urban', 'Semiurban', 'Rural'];
+    let areaApproved = [0, 0, 0];
+    let areaRejected = [0, 0, 0];
+
+    data.forEach(row => {
+        // Normalise PropertyArea — CSV has strings; DB may also store strings from dropdown
+        let rawArea = String(row.PropertyArea || '').trim();
+        // Handle legacy numeric encoding just in case
+        if (rawArea === '0') rawArea = 'Rural';
+        else if (rawArea === '1') rawArea = 'Semiurban';
+        else if (rawArea === '2') rawArea = 'Urban';
+
+        const isApproved = Number(row.Loan_Status) === 1;
+        let idx = 2; // default Rural
+        if (rawArea === 'Urban') idx = 0;
+        else if (rawArea === 'Semiurban' || rawArea === 'Semi-Urban') idx = 1;
+
+        if (isApproved) areaApproved[idx]++;
+        else areaRejected[idx]++;
+    });
+
+    const maxArea = Math.max(...areaApproved, ...areaRejected);
+
+    const traceAreaApp = {
+        name: 'Approved / Conditional',
+        x: areas,
+        y: areaApproved,
+        type: 'bar',
+        width: 0.3,
+        marker: { color: '#8b5cf6' },
+        hovertemplate: '%{y} Approved<extra></extra>'
+    };
+
+    const traceAreaRej = {
+        name: 'Rejected',
+        x: areas,
+        y: areaRejected,
+        type: 'bar',
+        width: 0.3,
+        marker: { color: '#ec4899' },
+        hovertemplate: '%{y} Rejected<extra></extra>'
+    };
+
+    Plotly.newPlot('chart-demo', [traceAreaApp, traceAreaRej], {
+        ...layoutBase,
+        barmode: 'group',
+        autosize: true,
+        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxArea * 1.25], showgrid: true },
+        xaxis: { title: 'Property Area', showgrid: false }
+    }, { responsive: true });
+
+    setTimeout(() => {
+        try {
+            Plotly.Plots.resize('chart-credit');
+            Plotly.Plots.resize('chart-dti');
+            Plotly.Plots.resize('chart-demo');
+        } catch(e) {}
+    }, 300);
+
+    // Re-resize on any window resize so charts never clip
+    window._portfolioResizeHandler && window.removeEventListener('resize', window._portfolioResizeHandler);
+    window._portfolioResizeHandler = () => {
+        try {
+            Plotly.Plots.resize('chart-credit');
+            Plotly.Plots.resize('chart-dti');
+            Plotly.Plots.resize('chart-demo');
+        } catch(e) {}
+    };
+    window.addEventListener('resize', window._portfolioResizeHandler);
 }
 
 /* ==============================
@@ -464,10 +682,21 @@ function renderPortfolioCharts() {
 ================================ */
 function calculateAmortization() {
     const principal = parseFloat(document.getElementById('sim_amount').value) || 0;
-    const termMonths = parseInt(document.getElementById('sim_term').value) || 1;
+    const termInput = parseFloat(document.getElementById('sim_term_years')?.value) || 30;
+    const termMonths = termInput > 40 ? Math.round(termInput) : Math.round(termInput * 12);
     const annualRate = parseFloat(document.getElementById('sim_rate').value) || 0;
+
+    // Update slider track fill to match current value
+    const sliderEl = document.getElementById('sim_rate');
+    if (sliderEl) {
+        const min = parseFloat(sliderEl.min) || 1;
+        const max = parseFloat(sliderEl.max) || 18;
+        const pct = ((annualRate - min) / (max - min)) * 100;
+        sliderEl.style.background = `linear-gradient(to right, var(--primary) 0%, var(--primary) ${pct}%, #cbd5e1 ${pct}%, #cbd5e1 100%)`;
+    }
     
     const monthlyRate = (annualRate / 100) / 12;
+
     
     let monthlyPmt = 0;
     if (principal <= 0) {
