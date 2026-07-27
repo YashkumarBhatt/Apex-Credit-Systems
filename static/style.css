@@ -331,9 +331,27 @@ select option { background: #ffffff; color: var(--text-main); }
 .live-metric-value { font-size: 1.8rem; font-weight: 700; color: #818cf8; }
 .live-metric-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem; }
 
-.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-.plotly-container { width: 100%; height: 350px; }
-@media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+.chart-grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, minmax(0, 1fr)); 
+    gap: 1.5rem; 
+}
+.chart-grid > .glass-card {
+    min-width: 0;
+    width: 100%;
+}
+.plotly-container { 
+    width: 100%; 
+    min-width: 0;
+    height: 380px; 
+}
+@media (max-width: 1100px) { 
+    .kpi-grid { grid-template-columns: 1fr 1fr; } 
+    .chart-grid { grid-template-columns: 1fr; } 
+}
+@media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+}
 
 /* =========================================
    ADMIN USER MANAGEMENT
