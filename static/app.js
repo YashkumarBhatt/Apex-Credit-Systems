@@ -259,24 +259,58 @@ async function handlePredict(e) {
 
         const data = await res.json();
         const isApproved = data.prediction === 1;
+        const status = data.status || (isApproved ? 'APPROVED' : 'REJECTED');
+        const track = data.track || (payload.CreditHistory === 1.0 ? 'Established Credit Track' : 'Income-Based Capacity Track');
+        const tier = data.tier || (isApproved ? 'Tier 1 - Standard Approval' : 'Standard Rejection');
+        const notes = data.actionable_notes || '';
+        const conditions = data.conditions || [];
+        const counterAmt = data.counter_offer_amount;
         
         // Auto-fill the amortization simulator with the applicant's loan details (convert thousands to actual)
         const inputAmount = parseFloat(document.getElementById('loan_amount').value) || 0;
-        document.getElementById('sim_amount').value = inputAmount * 1000;
+        document.getElementById('sim_amount').value = (counterAmt || (inputAmount * 1000));
         document.getElementById('sim_term').value = document.getElementById('loan_term').value;
         
         // Auto-run the simulation to show breakdown immediately
         calculateAmortization();
 
-        resultDiv.className = `result-card ${isApproved ? 'approved' : 'rejected'}`;
-        const explanation = isApproved 
-            ? 'The underwriting algorithm has analyzed the provided financial history and demographic factors. Approval is recommended.'
-            : 'The underwriting algorithm detected high-risk indicators based on the provided financial parameters. Rejection is recommended.';
-            
+        let cardStyleClass = 'approved';
+        if (status === 'Conditional Approval') cardStyleClass = 'approved';
+        else if (status === 'Counter-Offer Proposed') cardStyleClass = 'approved';
+        else if (!isApproved) cardStyleClass = 'rejected';
+
+        resultDiv.className = `result-card ${cardStyleClass}`;
+        
+        let conditionsHTML = '';
+        if (conditions.length > 0) {
+            conditionsHTML = `
+                <div style="margin-top:0.8rem; text-align:left; background:rgba(255,255,255,0.15); padding:0.8rem; border-radius:8px;">
+                    <div style="font-weight:600; font-size:0.85rem; margin-bottom:0.3rem;">📋 Mandatory Conditions:</div>
+                    <ul style="margin:0; padding-left:1.2rem; font-size:0.85rem;">
+                        ${conditions.map(c => `<li>${c}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        let counterHTML = '';
+        if (counterAmt) {
+            counterHTML = `
+                <div style="margin-top:0.8rem; background:rgba(59,130,246,0.15); padding:0.8rem; border-radius:8px; text-align:center;">
+                    <div style="font-size:0.85rem; font-weight:600;">💡 Pre-Approved Counter-Offer:</div>
+                    <div style="font-size:1.3rem; font-weight:700; color:#3b82f6;">$${counterAmt.toLocaleString()}</div>
+                </div>
+            `;
+        }
+
         resultDiv.innerHTML = `
-            <div class="status-text">${isApproved ? 'APPROVED' : 'REJECTED'}</div>
-            <div class="conf-text">Model Confidence: <strong style="color:var(--text-main)">${data.confidence_percentage.toFixed(1)}%</strong></div>
-            <div class="explanation">${explanation}</div>
+            <div style="font-size:0.8rem; font-weight:600; letter-spacing:0.5px; opacity:0.8; margin-bottom:0.2rem;">${track.toUpperCase()}</div>
+            <div class="status-text">${status.toUpperCase()}</div>
+            <div style="font-size:0.9rem; font-weight:600; color:var(--text-main); margin-top:0.2rem;">${tier}</div>
+            <div class="conf-text" style="margin-top:0.4rem;">Score: <strong style="color:var(--text-main)">${data.confidence_percentage.toFixed(1)}%</strong></div>
+            <div class="explanation" style="margin-top:0.6rem;">${notes}</div>
+            ${counterHTML}
+            ${conditionsHTML}
         `;
         
         // Refresh the portfolio charts dynamically

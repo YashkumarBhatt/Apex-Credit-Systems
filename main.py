@@ -50,11 +50,16 @@ base_path = os.path.dirname(__file__)
 try:
     preprocessor = joblib.load(os.path.join(base_path, 'loan_preprocessor.joblib'))
     model = joblib.load(os.path.join(base_path, 'loan_rf_model.joblib'))
-    print("Models loaded successfully.")
+    
+    preprocessor_thin = joblib.load(os.path.join(base_path, 'loan_thinfile_preprocessor.joblib'))
+    model_thin = joblib.load(os.path.join(base_path, 'loan_thinfile_rf_model.joblib'))
+    print("Dual-Track Models loaded successfully.")
 except Exception as e:
     print(f"Error loading models: {e}")
     preprocessor = None
     model = None
+    preprocessor_thin = None
+    model_thin = None
 
 # Pydantic Schemas
 class UserCreate(BaseModel):
@@ -154,8 +159,8 @@ def logout(logout_req: LogoutRequest, db: Session = Depends(get_db), current_use
 
 @app.post("/predict")
 def predict_loan(application: LoanApplication, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    if preprocessor is None or model is None:
-        raise HTTPException(status_code=500, detail="Models not loaded on server.")
+    if preprocessor is None or model is None or preprocessor_thin is None or model_thin is None:
+        raise HTTPException(status_code=500, detail="Dual-Track Models not loaded on server.")
     
     try:
         input_dict = application.model_dump()
@@ -165,13 +170,70 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
     input_df = pd.DataFrame([input_dict])
     
     try:
-        transformed_data = preprocessor.transform(input_df)
-        prediction = model.predict(transformed_data)[0]
-        probabilities = model.predict_proba(transformed_data)[0]
-        conf = probabilities[1] if prediction == 1 else probabilities[0]
+        credit_hist = application.CreditHistory
+        total_income = application.ApplicantIncome + application.CoapplicantIncome
+        lti = application.LoanAmount / (total_income if total_income > 0 else 1)
         
-        status = "Approved" if prediction == 1 else "Rejected"
-        confidence_percentage = round(float(conf) * 100, 2)
+        track = ""
+        tier = ""
+        status = ""
+        confidence_percentage = 0.0
+        conditions = []
+        counter_offer_amount = None
+        actionable_notes = ""
+        prediction_val = 0
+        
+        if credit_hist == 1.0:
+            # TRACK 1: ESTABLISHED CREDIT TRACK
+            track = "Established Credit Track"
+            transformed_data = preprocessor.transform(input_df)
+            prediction_val = int(model.predict(transformed_data)[0])
+            probabilities = model.predict_proba(transformed_data)[0]
+            conf = probabilities[1] if prediction_val == 1 else probabilities[0]
+            confidence_percentage = round(float(conf) * 100, 2)
+            
+            if prediction_val == 1:
+                status = "Approved"
+                tier = "Tier 1 - Standard Approval"
+                actionable_notes = "Meets established credit guidelines."
+            else:
+                status = "Rejected"
+                tier = "Standard Rejection"
+                actionable_notes = "Does not meet standard credit history criteria."
+        else:
+            # TRACK 2: INCOME-BASED CAPACITY TRACK
+            track = "Income-Based Capacity Track"
+            transformed_thin = preprocessor_thin.transform(input_df)
+            prob_cap = float(model_thin.predict_proba(transformed_thin)[0][1])
+            
+            if prob_cap >= 0.60 and lti <= 3.5:
+                prediction_val = 1
+                status = "Conditional Approval"
+                tier = "Tier 2A - Conditional Approval"
+                confidence_percentage = round(prob_cap * 100, 2)
+                conditions = [
+                    "Mandatory Guarantor / Co-signer required",
+                    "Interest Rate Risk Premium: +1.50%",
+                    "12-Month consecutive income proof required"
+                ]
+                actionable_notes = "High repayment capacity detected despite zero credit history."
+            elif prob_cap >= 0.40:
+                prediction_val = 1
+                status = "Counter-Offer Proposed"
+                tier = "Tier 2B - Counter-Offer Proposed"
+                confidence_percentage = round(prob_cap * 100, 2)
+                recommended_max_loan = round((total_income * 2.5) / 5000) * 5000
+                if recommended_max_loan < 10000:
+                    recommended_max_loan = 10000
+                counter_offer_amount = recommended_max_loan
+                conditions = [f"Loan request adjusted to capacity threshold of ${recommended_max_loan:,.0f}"]
+                actionable_notes = f"Requested ${application.LoanAmount:,.0f} exceeds risk limit. Pre-approved for ${recommended_max_loan:,.0f}."
+            else:
+                prediction_val = 0
+                status = "Rejected"
+                tier = "Tier 2C - High Financial Risk"
+                confidence_percentage = round((1 - prob_cap) * 100, 2)
+                actionable_notes = "Insufficient income and repayment capacity for requested loan amount."
         
         history_entry = models.PredictionHistory(
             user_id=current_user.id,
@@ -192,9 +254,14 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
         db.commit()
         
         return {
-            "prediction": int(prediction),
+            "prediction": prediction_val,
             "confidence_percentage": confidence_percentage,
             "status": status,
+            "track": track,
+            "tier": tier,
+            "conditions": conditions,
+            "counter_offer_amount": counter_offer_amount,
+            "actionable_notes": actionable_notes,
             "logged_to_database": True
         }
     except Exception as e:

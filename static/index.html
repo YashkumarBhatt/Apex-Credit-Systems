@@ -221,14 +221,18 @@
                     </div>
                 </div>
 
-                <div class="chart-grid">
-                    <div class="glass-card" style="grid-column: 1 / -1;">
-                        <h4 style="margin-bottom: 1rem;">💳 Credit History</h4>
-                        <div id="chart-credit" class="plotly-container"></div>
+                <div class="chart-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="glass-card">
+                        <h4 style="margin-bottom: 1rem;">💳 Credit Underwriting Track Outcomes</h4>
+                        <div id="chart-credit" class="plotly-container" style="min-height: 380px;"></div>
+                    </div>
+                    <div class="glass-card">
+                        <h4 style="margin-bottom: 1rem;">📊 Debt-to-Income (DTI) Risk Tier Breakdown</h4>
+                        <div id="chart-dti" class="plotly-container" style="min-height: 380px;"></div>
                     </div>
                     <div class="glass-card" style="grid-column: 1 / -1;">
-                        <h4 style="margin-bottom: 1rem;">🎓 Demographic Acceptance Matrices</h4>
-                        <div id="chart-demo" class="plotly-container"></div>
+                        <h4 style="margin-bottom: 1rem;">🏙️ Property Collateral Liquidity Distribution</h4>
+                        <div id="chart-demo" class="plotly-container" style="min-height: 350px;"></div>
                     </div>
                 </div>
             </div>
