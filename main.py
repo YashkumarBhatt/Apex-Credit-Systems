@@ -390,7 +390,43 @@ def get_all_users(db: Session = Depends(get_db), current_user: models.User = Dep
     if not current_user.is_master:
         raise HTTPException(status_code=403, detail="Master User privileges required.")
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "is_master": u.is_master, "is_active": getattr(u, 'is_active', True)} for u in users]
+    return [{
+        "id": u.id,
+        "username": u.username,
+        "is_master": u.is_master,
+        "is_active": getattr(u, 'is_active', True),
+        "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if getattr(u, 'created_at', None) else None
+    } for u in users]
+
+@app.get("/admin/sessions")
+def get_all_sessions(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_master:
+        raise HTTPException(status_code=403, detail="Master User privileges required.")
+    sessions = db.query(models.UserSession).order_by(models.UserSession.id.desc()).all()
+    return [{
+        "id": s.id,
+        "user_id": s.user_id,
+        "ip_address": s.ip_address,
+        "login_time": s.login_time.strftime("%Y-%m-%d %H:%M:%S") if s.login_time else None,
+        "logout_time": s.logout_time.strftime("%Y-%m-%d %H:%M:%S") if s.logout_time else None
+    } for s in sessions]
+
+@app.get("/admin/history")
+def get_all_history(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_master:
+        raise HTTPException(status_code=403, detail="Master User privileges required.")
+    history = db.query(models.PredictionHistory).order_by(models.PredictionHistory.id.desc()).all()
+    return [{
+        "id": h.id,
+        "user_id": h.user_id,
+        "applicant_income": h.applicant_income,
+        "coapplicant_income": h.coapplicant_income,
+        "loan_amount": h.loan_amount,
+        "loan_amount_term": h.loan_amount_term,
+        "prediction_result": h.prediction_result,
+        "confidence_score": h.confidence_score,
+        "created_at": h.created_at.strftime("%Y-%m-%d %H:%M:%S") if h.created_at else None
+    } for h in history]
 
 @app.post("/admin/users/{user_id}/toggle-status")
 def toggle_user_status(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
