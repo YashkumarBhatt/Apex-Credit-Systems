@@ -460,6 +460,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: model
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found.")
         
+    # Delete dependent sessions and prediction records to prevent foreign key errors
+    db.query(models.UserSession).filter(models.UserSession.user_id == user_id).delete(synchronize_session=False)
+    db.query(models.PredictionHistory).filter(models.PredictionHistory.user_id == user_id).delete(synchronize_session=False)
+    
     db.delete(target_user)
     db.commit()
     return {"message": "User and all associated data permanently deleted."}

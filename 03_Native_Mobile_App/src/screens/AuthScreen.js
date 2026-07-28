@@ -32,19 +32,6 @@ export default function AuthScreen({ onLoginSuccess }) {
     );
   };
 
-  const handlePasswordChange = (text) => {
-    if (showPassword) {
-      setPassword(text);
-    } else {
-      if (text.length > password.length) {
-        const newChars = text.slice(password.length);
-        setPassword(password + newChars);
-      } else {
-        setPassword(password.slice(0, text.length));
-      }
-    }
-  };
-
   const handleAuth = async () => {
     setErrorMessage('');
     if (!username.trim() || !password.trim()) {
@@ -146,9 +133,9 @@ export default function AuthScreen({ onLoginSuccess }) {
             <View style={styles.passwordWrapper}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
-                value={showPassword ? password : '•'.repeat(password.length)}
-                onChangeText={handlePasswordChange}
-                secureTextEntry={false}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
                 placeholder="Enter passcode"
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="none"
