@@ -53,6 +53,18 @@ def download_apk(request: Request):
         )
     raise HTTPException(status_code=404, detail="APK file not found")
 
+@app.api_route("/download-native-apk", methods=["GET", "HEAD"])
+def download_native_apk(request: Request):
+    apk_path = os.path.join(os.path.dirname(__file__), "apex-credit-native-app.apk")
+    if os.path.exists(apk_path):
+        return FileResponse(
+            apk_path,
+            media_type="application/vnd.android.package-archive",
+            filename="apex-credit-native-app.apk"
+        )
+    raise HTTPException(status_code=404, detail="Native APK file not found")
+
+
 
 
 # Security schema
