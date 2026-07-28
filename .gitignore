@@ -1,0 +1,36 @@
+# Python Caches & Virtualenvs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+env/
+
+# Node.js & React Native Caches
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+*.log
+
+# Android Build Outputs
+android/app/build/
+android/.gradle/
+android/build/
+*.apk
+*.aab
+*.keystore
+
+# Database & Sensitive Local Logs
+*.db
+*.sqlite3
+.env
+.env.local
+
+# macOS Metadata
+.DS_Store
+.AppleDouble
+.LSOverride

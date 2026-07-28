@@ -1,0 +1,24 @@
+{
+  "name": "Apex Credit Systems",
+  "short_name": "Apex Credit",
+  "description": "Dual-Track Underwriting Engine & Credit Capacity Analytics for Field Credit Officers.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
