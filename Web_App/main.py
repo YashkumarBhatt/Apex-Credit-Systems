@@ -72,9 +72,14 @@ def init_master_admin():
             admin_user.is_master = True
             db.commit()
         
-        # Erase non-master analyst accounts as requested
-        db.query(models.User).filter(models.User.is_master == False).delete(synchronize_session=False)
-        db.commit()
+        # Erase non-master analyst accounts as requested, clearing foreign key references first
+        non_master_users = db.query(models.User).filter(models.User.is_master == False).all()
+        if non_master_users:
+            non_master_ids = [u.id for u in non_master_users]
+            db.query(models.UserSession).filter(models.UserSession.user_id.in_(non_master_ids)).delete(synchronize_session=False)
+            db.query(models.PredictionHistory).filter(models.PredictionHistory.user_id.in_(non_master_ids)).delete(synchronize_session=False)
+            db.query(models.User).filter(models.User.is_master == False).delete(synchronize_session=False)
+            db.commit()
     finally:
         db.close()
 
