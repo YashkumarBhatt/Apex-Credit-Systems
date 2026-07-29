@@ -16,6 +16,7 @@ import { API_BASE } from '../config';
 export default function AuthScreen({ onLoginSuccess }) {
   const [authMode, setAuthMode] = useState('login');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,35 @@ export default function AuthScreen({ onLoginSuccess }) {
     );
   };
 
+  const handleForgotPassword = () => {
+    Alert.prompt(
+      "Passcode Recovery",
+      "Enter your registered professional email address to receive a passcode reset link:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Send Reset Link",
+          onPress: async (submittedEmail) => {
+            if (!submittedEmail || !submittedEmail.trim()) return;
+            try {
+              const res = await fetch(`${API_BASE}/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: submittedEmail.trim() })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.detail || 'Request failed.');
+              Alert.alert('Passcode Reset Sent', data.message);
+            } catch (err) {
+              Alert.alert('Error', err.message);
+            }
+          }
+        }
+      ],
+      "plain-text"
+    );
+  };
+
   const handleAuth = async () => {
     setErrorMessage('');
     if (!username.trim() || !password.trim()) {
@@ -42,6 +72,9 @@ export default function AuthScreen({ onLoginSuccess }) {
     setLoading(true);
     try {
       if (authMode === 'register') {
+        if (!email.trim() || !email.includes('@')) {
+          throw new Error('Please enter a valid professional email address.');
+        }
         if (!validatePasswordRequirements(password)) {
           throw new Error('Passcode must be at least 8 chars, contain uppercase, lowercase, number, symbol, and not equal username.');
         }
@@ -49,7 +82,7 @@ export default function AuthScreen({ onLoginSuccess }) {
         const res = await fetch(`${API_BASE}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username, email: email.trim(), password })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Registration failed.');
@@ -128,6 +161,23 @@ export default function AuthScreen({ onLoginSuccess }) {
             />
           </View>
 
+          {authMode === 'register' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Professional Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="name@company.com"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+                spellCheck={false}
+              />
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Passcode</Text>
             <View style={styles.passwordWrapper}>
@@ -150,6 +200,12 @@ export default function AuthScreen({ onLoginSuccess }) {
               </TouchableOpacity>
             </View>
           </View>
+
+          {authMode === 'login' && (
+            <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+              <Text style={{ fontSize: 13, color: '#38bdf8', fontWeight: '600' }}>Forgot Passcode?</Text>
+            </TouchableOpacity>
+          )}
 
           {authMode === 'register' && (
             <View style={styles.reqBox}>

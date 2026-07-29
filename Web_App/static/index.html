@@ -41,10 +41,17 @@
                     <label for="username">Analyst ID / Username</label>
                     <input type="text" id="username" required autocomplete="username">
                 </div>
+
+                <div class="input-group hidden" id="email-group">
+                    <label for="email">Professional Email Address</label>
+                    <input type="email" id="email" placeholder="name@company.com" autocomplete="email">
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Must be a professional email (Gmail, Yahoo, Outlook, or corporate domain). Temporary email domains are blocked.</div>
+                </div>
+
                 <div class="input-group">
                     <label for="password">Passcode</label>
                     <input type="password" id="password" required autocomplete="current-password"
-                        oninput="validatePassword()" oncopy="return false;" onpaste="alert('Pasting the password is not allowed for security reasons. Please type it manually.'); return false;" oncut="return false;">
+                        oninput="validatePassword()">
                     <div id="password-checklist" class="hidden"
                         style="margin-top: 0.5rem; text-align: left; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 8px;">
                         <ul style="list-style-type: none; padding-left: 0; margin-bottom: 0;">
@@ -57,8 +64,48 @@
                         </ul>
                     </div>
                 </div>
+
+                <div id="forgot-link-container" style="text-align:right;margin:-0.3rem 0 1.2rem 0;">
+                    <a href="javascript:void(0)" onclick="openForgotModal()" style="font-size:0.82rem;color:#4f46e5;font-weight:600;text-decoration:none;">Forgot Passcode?</a>
+                </div>
+
                 <button type="submit" id="auth-submit-btn" class="primary-btn full-width">Access System</button>
                 <div id="auth-error" class="error-msg"></div>
+            </form>
+        </div>
+
+        <!-- Forgot / Reset Passcode Modal -->
+        <div id="forgot-modal" class="view hidden glass-card" style="max-width:440px;margin:2rem auto;padding:2rem;">
+            <h2 class="gradient-text" style="font-size:1.5rem;margin-bottom:0.4rem;">Passcode Recovery</h2>
+            <p style="font-size:0.88rem;color:#64748b;margin-bottom:1.25rem;">Enter your registered professional email to receive a reset link.</p>
+            
+            <form id="forgot-form" onsubmit="handleForgotPassword(event)">
+                <div class="input-group" style="text-align:left;">
+                    <label for="forgot-email">Registered Email</label>
+                    <input type="email" id="forgot-email" placeholder="name@company.com" required>
+                </div>
+                <button type="submit" id="forgot-submit-btn" class="primary-btn full-width" style="margin-top:0.75rem;">Send Reset Link</button>
+                <div id="forgot-status" style="margin-top:0.75rem;font-size:0.85rem;line-height:1.4;"></div>
+            </form>
+
+            <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e2e8f0;">
+                <button type="button" onclick="closeForgotModal()" class="secondary-btn full-width" style="font-size:0.85rem;">Back to Login</button>
+            </div>
+        </div>
+
+        <!-- Reset Password Modal (Triggered via Token Link) -->
+        <div id="reset-modal" class="view hidden glass-card" style="max-width:440px;margin:2rem auto;padding:2rem;">
+            <h2 class="gradient-text" style="font-size:1.5rem;margin-bottom:0.4rem;">Reset New Passcode</h2>
+            <p style="font-size:0.88rem;color:#64748b;margin-bottom:1.25rem;">Enter a strong new passcode for your account.</p>
+
+            <form id="reset-form" onsubmit="handleResetPassword(event)">
+                <input type="hidden" id="reset-token-input">
+                <div class="input-group" style="text-align:left;">
+                    <label for="new-passcode">New Passcode</label>
+                    <input type="password" id="new-passcode" required placeholder="Enter new passcode">
+                </div>
+                <button type="submit" id="reset-submit-btn" class="primary-btn full-width" style="margin-top:0.75rem;">Update Passcode</button>
+                <div id="reset-status" style="margin-top:0.75rem;font-size:0.85rem;line-height:1.4;"></div>
             </form>
         </div>
 

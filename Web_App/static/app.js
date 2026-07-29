@@ -11,6 +11,19 @@ let currentAuthMode = 'login';
 let portfolioDataCache = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Check for password reset token in URL hash
+    if (window.location.hash && window.location.hash.includes('token=')) {
+        const token = window.location.hash.split('token=')[1].split('&')[0];
+        if (token) {
+            document.getElementById('reset-token-input').value = token;
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('auth-view').classList.remove('active');
+            document.getElementById('reset-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('reset-modal').classList.add('active'), 10);
+            return;
+        }
+    }
+
     if (authToken) {
         showDashboard();
     } else {
@@ -24,17 +37,113 @@ document.addEventListener('DOMContentLoaded', () => {
 function switchAuthTab(mode) {
     currentAuthMode = mode;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    if (typeof event !== 'undefined' && event && event.target) {
+        event.target.classList.add('active');
+    }
+    
     document.getElementById('auth-submit-btn').textContent = mode === 'login' ? 'Access System' : 'Create Credentials';
     document.getElementById('auth-error').textContent = '';
     
+    const emailGroup = document.getElementById('email-group');
+    const forgotLink = document.getElementById('forgot-link-container');
     const checklist = document.getElementById('password-checklist');
-    if (checklist) {
-        if (mode === 'register') {
-            checklist.classList.remove('hidden');
-        } else {
-            checklist.classList.add('hidden');
+
+    if (mode === 'register') {
+        if (emailGroup) emailGroup.classList.remove('hidden');
+        if (forgotLink) forgotLink.classList.add('hidden');
+        if (checklist) checklist.classList.remove('hidden');
+    } else {
+        if (emailGroup) emailGroup.classList.add('hidden');
+        if (forgotLink) forgotLink.classList.remove('hidden');
+        if (checklist) checklist.classList.add('hidden');
+    }
+}
+
+function openForgotModal() {
+    document.getElementById('auth-view').classList.remove('active');
+    setTimeout(() => {
+        document.getElementById('auth-view').classList.add('hidden');
+        document.getElementById('forgot-modal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('forgot-modal').classList.add('active'), 10);
+    }, 200);
+}
+
+function closeForgotModal() {
+    document.getElementById('forgot-modal').classList.remove('active');
+    setTimeout(() => {
+        document.getElementById('forgot-modal').classList.add('hidden');
+        document.getElementById('auth-view').classList.remove('hidden');
+        setTimeout(() => document.getElementById('auth-view').classList.add('active'), 10);
+    }, 200);
+}
+
+async function handleForgotPassword(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    const statusDiv = document.getElementById('forgot-status');
+    const submitBtn = document.getElementById('forgot-submit-btn');
+
+    statusDiv.style.color = '#334155';
+    statusDiv.textContent = 'Sending reset link...';
+    submitBtn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Request failed');
+
+        statusDiv.style.color = 'var(--success)';
+        statusDiv.innerHTML = `✓ ${data.message}`;
+
+        if (data.reset_url) {
+            statusDiv.innerHTML += `<br><br><b>Local Test Reset Link:</b><br><a href="${data.reset_url}" style="color:#4f46e5;word-break:break-all;">${data.reset_url}</a>`;
         }
+    } catch (err) {
+        statusDiv.style.color = 'var(--danger)';
+        statusDiv.textContent = `✗ ${err.message}`;
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+
+async function handleResetPassword(e) {
+    e.preventDefault();
+    const token = document.getElementById('reset-token-input').value;
+    const new_password = document.getElementById('new-passcode').value;
+    const statusDiv = document.getElementById('reset-status');
+    const submitBtn = document.getElementById('reset-submit-btn');
+
+    statusDiv.style.color = '#334155';
+    statusDiv.textContent = 'Updating passcode...';
+    submitBtn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, new_password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Reset failed');
+
+        statusDiv.style.color = 'var(--success)';
+        statusDiv.textContent = `✓ ${data.message}`;
+
+        setTimeout(() => {
+            window.location.hash = '';
+            document.getElementById('reset-modal').classList.remove('active');
+            document.getElementById('reset-modal').classList.add('hidden');
+            showAuth();
+        }, 2000);
+    } catch (err) {
+        statusDiv.style.color = 'var(--danger)';
+        statusDiv.textContent = `✗ ${err.message}`;
+    } finally {
+        submitBtn.disabled = false;
     }
 }
 
@@ -178,6 +287,7 @@ async function handleAuth(e) {
 
     try {
         if (currentAuthMode === 'register') {
+            const email = document.getElementById('email').value;
             const isValid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) && password !== username;
             if (!isValid) {
                 throw new Error("Password does not meet all security requirements.");
@@ -186,7 +296,7 @@ async function handleAuth(e) {
             const res = await fetch(`${API_BASE}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, email, password })
             });
             if (!res.ok) throw new Error((await res.json()).detail || 'Registration failed');
             alert('Credentials created securely! You may now login.');
@@ -338,6 +448,32 @@ async function handlePredict(e) {
             `;
         }
 
+        // ── Underwriting Key Factors (SHAP / Feature Impact Attribution) ──
+        const keyFactors = data.key_factors || [];
+        let keyFactorsHTML = '';
+        if (keyFactors.length > 0) {
+            keyFactorsHTML = `
+                <div style="padding-top:0.85rem;border-top:1px solid #e8ecf2;margin-top:0.85rem;">
+                    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.55rem;">
+                        <span style="font-size:0.95rem;">⚖️</span>
+                        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#475569;">Key Underwriting Decision Factors</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                        ${keyFactors.map(f => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;background:${f.type === 'positive' ? '#f0fdf4' : '#fef2f2'};border:1px solid ${f.type === 'positive' ? '#bbf7d0' : '#fecaca'};padding:0.4rem 0.65rem;border-radius:6px;font-size:0.78rem;">
+                                <span style="color:${f.type === 'positive' ? '#166534' : '#991b1b'};font-weight:500;">
+                                    ${f.type === 'positive' ? '🟢' : '🔴'} ${f.factor}
+                                </span>
+                                <span style="font-weight:700;color:${f.type === 'positive' ? '#15803d' : '#dc2626'};">
+                                    ${f.impact}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         // ── Conditions list ──
         let conditionsHTML = '';
         if (conditions.length > 0) {
@@ -390,6 +526,9 @@ async function handlePredict(e) {
 
             <!-- Loan Comparison -->
             ${loanComparisonHTML}
+
+            <!-- Key Underwriting Decision Factors -->
+            ${keyFactorsHTML}
 
             <!-- Conditions -->
             ${conditionsHTML}

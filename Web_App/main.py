@@ -8,6 +8,11 @@ import pandas as pd
 import os
 import io
 import re
+import secrets
+import json
+import urllib.request
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -40,13 +45,22 @@ def init_master_admin():
             admin_user.hashed_password = auth.get_password_hash(MASTER_PASSWORD)
             admin_user.is_master = True
             db.commit()
+        
+        # Erase non-master analyst accounts as requested
+        db.query(models.User).filter(models.User.is_master == False).delete(synchronize_session=False)
+        db.commit()
     finally:
         db.close()
 
 init_master_admin()
 # -------------------------------------------
 
-app = FastAPI(title="Apex Loan Systems API")
+app = FastAPI(title="Apex Loan Approval API", version="1.0.0")
+
+# Mount Static Files for frontend
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.api_route("/download-apk", methods=["GET", "HEAD"])
 def download_apk(request: Request):
@@ -75,6 +89,26 @@ def download_native_apk(request: Request):
 # Security schema
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+# Disposable Email Domains Filter
+DISPOSABLE_DOMAINS = {
+    "tempmail.com", "mailinator.com", "guerrillamail.com", "10minutemail.com",
+    "trashmail.com", "dispostable.com", "yopmail.com", "getnada.com", "sharklasers.com",
+    "throwawaymail.com", "temp-mail.org", "fakeinbox.com", "maildrop.cc", "crazymailing.com",
+    "mytemp.email", "mohmal.com", "inboxalias.com", "generator.email", "tempmail.net",
+    "byom.de", "mailnesia.com", "dropmail.me"
+}
+
+def validate_professional_email(email_str: Optional[str]):
+    if not email_str or not email_str.strip():
+        raise HTTPException(status_code=400, detail="A professional email address is required for registration.")
+    clean_email = email_str.strip().lower()
+    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", clean_email):
+        raise HTTPException(status_code=400, detail="Invalid email address format.")
+    domain = clean_email.split("@")[-1]
+    if domain in DISPOSABLE_DOMAINS:
+        raise HTTPException(status_code=400, detail=f"Registration with temporary email domain '@{domain}' is strictly prohibited. Please use a professional email address.")
+    return clean_email
+
 # Load Machine Learning Models
 base_path = os.path.dirname(__file__)
 try:
@@ -94,7 +128,15 @@ except Exception as e:
 # Pydantic Schemas
 class UserCreate(BaseModel):
     username: str
+    email: Optional[str] = None
     password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 class LoanApplication(BaseModel):
     ApplicantIncome: float
@@ -124,6 +166,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Account has been suspended by Master Admin")
     return user
 
 def generate_csv_response(df, filename):
@@ -139,17 +183,104 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     
+    clean_email = validate_professional_email(user.email)
+    existing_email = db.query(models.User).filter(models.User.email == clean_email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email address is already registered to another account")
+    
     pwd = user.password
     if len(pwd) < 8 or not re.search(r"[A-Z]", pwd) or not re.search(r"[a-z]", pwd) or not re.search(r"[0-9]", pwd) or not re.search(r"[^A-Za-z0-9]", pwd) or pwd == user.username:
         raise HTTPException(status_code=400, detail="Password does not meet security requirements.")
     
     hashed_password = auth.get_password_hash(user.password)
     # New users are NEVER masters by default
-    new_user = models.User(username=user.username, hashed_password=hashed_password, is_master=False)
+    new_user = models.User(username=user.username, email=clean_email, hashed_password=hashed_password, is_master=False)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return {"message": "User registered successfully", "user_id": new_user.id}
+
+@app.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    clean_email = req.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == clean_email).first()
+    if not user:
+        return {"message": "If an account exists with this email, passcode reset instructions have been sent."}
+    
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    db.commit()
+
+    base_url = str(request.base_url).rstrip('/')
+    reset_url = f"{base_url}/#reset-passcode?token={token}"
+
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+    if RESEND_API_KEY:
+        try:
+            resend_payload = json.dumps({
+                "from": "Apex Credit Systems <onboarding@resend.dev>",
+                "to": [clean_email],
+                "subject": "Passcode Reset Request — Apex Credit Systems",
+                "html": f"""
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <h2 style="color:#4f46e5;margin-top:0;">Apex Credit Systems</h2>
+                    <p style="color:#334155;font-size:15px;">Hello <b>{user.username}</b>,</p>
+                    <p style="color:#334155;font-size:15px;line-height:1.5;">You requested a passcode reset for your analyst portal account. Click the button below to reset your passcode:</p>
+                    <div style="margin:24px 0;text-align:center;">
+                        <a href="{reset_url}" style="display:inline-block;padding:14px 28px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:15px;">Reset Passcode</a>
+                    </div>
+                    <p style="color:#64748b;font-size:13px;">This reset link will expire in 15 minutes. If you did not request a passcode reset, please ignore this email.</p>
+                </div>
+                """
+            }).encode('utf-8')
+            
+            req_obj = urllib.request.Request(
+                "https://api.resend.com/emails", 
+                data=resend_payload, 
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+            urllib.request.urlopen(req_obj)
+            print(f"Passcode reset email dispatched successfully via Resend API to {clean_email}")
+        except Exception as e:
+            print(f"Resend API email error: {e}")
+    else:
+        print(f"RESEND_API_KEY not configured. Local Passcode Reset Link: {reset_url}")
+
+    return {
+        "message": "If an account exists with this email, passcode reset instructions have been sent.",
+        "reset_url": reset_url if not RESEND_API_KEY else None
+    }
+
+@app.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    if not req.token:
+        raise HTTPException(status_code=400, detail="Invalid or missing reset token.")
+    
+    user = db.query(models.User).filter(models.User.reset_token == req.token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+    
+    if user.reset_token_expiry:
+        expiry = user.reset_token_expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expiry:
+            raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new link.")
+    
+    pwd = req.new_password
+    if len(pwd) < 8 or not re.search(r"[A-Z]", pwd) or not re.search(r"[a-z]", pwd) or not re.search(r"[0-9]", pwd) or not re.search(r"[^A-Za-z0-9]", pwd) or pwd == user.username:
+        raise HTTPException(status_code=400, detail="New password does not meet security requirements.")
+    
+    user.hashed_password = auth.get_password_hash(pwd)
+    user.reset_token = None
+    user.reset_token_expiry = None
+    db.commit()
+    
+    return {"message": "Passcode reset successfully. You can now log in with your new passcode."}
 
 @app.post("/login")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -186,6 +317,41 @@ def logout(logout_req: LogoutRequest, db: Session = Depends(get_db), current_use
         session_record.logout_time = func.now()
         db.commit()
     return {"message": "Logged out securely"}
+
+def compute_key_factors(app_data):
+    factors = []
+    total_income = app_data.ApplicantIncome + app_data.CoapplicantIncome
+    literal_loan = app_data.LoanAmount * 1000 if app_data.LoanAmount < 1000 else app_data.LoanAmount
+    monthly_inc = (total_income / 12) if total_income > 0 else 1
+    term_months = app_data.Loan_Amount_Term if app_data.Loan_Amount_Term > 0 else 360
+    monthly_emi = literal_loan / term_months
+    dti_percent = round((monthly_emi / monthly_inc) * 100, 1)
+
+    if app_data.CreditHistory == 1.0:
+        factors.append({"factor": "Verified Positive Credit Bureau History", "impact": "+35%", "type": "positive"})
+    else:
+        factors.append({"factor": "Unestablished / Poor Credit History File", "impact": "-30%", "type": "negative"})
+
+    if total_income >= 10000:
+        factors.append({"factor": f"High Household Monthly Income (₹{total_income:,.0f})", "impact": "+25%", "type": "positive"})
+    elif total_income >= 5000:
+        factors.append({"factor": f"Moderate Household Income (₹{total_income:,.0f})", "impact": "+15%", "type": "positive"})
+    else:
+        factors.append({"factor": f"Low Total Monthly Income (₹{total_income:,.0f})", "impact": "-20%", "type": "negative"})
+
+    if dti_percent <= 20:
+        factors.append({"factor": f"Low Debt Service Ratio ({dti_percent}% DTI)", "impact": "+20%", "type": "positive"})
+    elif dti_percent <= 35:
+        factors.append({"factor": f"Moderate Debt Burden ({dti_percent}% DTI)", "impact": "-15%", "type": "negative"})
+    else:
+        factors.append({"factor": f"High Repayment Burden ({dti_percent}% DTI)", "impact": "-30%", "type": "negative"})
+
+    if app_data.PropertyArea in ["Semiurban", "Urban"]:
+        factors.append({"factor": f"Prime Property Location ({app_data.PropertyArea} Area)", "impact": "+10%", "type": "positive"})
+    else:
+        factors.append({"factor": "Rural Property Location Haircut", "impact": "-10%", "type": "negative"})
+
+    return factors
 
 @app.post("/predict")
 def predict_loan(application: LoanApplication, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
@@ -301,6 +467,8 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
         db.add(history_entry)
         db.commit()
         
+        key_factors = compute_key_factors(application)
+
         return {
             "prediction": prediction_val,
             "confidence_percentage": confidence_percentage,
@@ -310,6 +478,7 @@ def predict_loan(application: LoanApplication, db: Session = Depends(get_db), cu
             "conditions": conditions,
             "counter_offer_amount": counter_offer_amount,
             "actionable_notes": actionable_notes,
+            "key_factors": key_factors,
             "logged_to_database": True
         }
     except Exception as e:

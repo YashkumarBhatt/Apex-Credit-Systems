@@ -251,6 +251,23 @@ export default function UnderwritingScreen({ token, onSwitchToAmortization }) {
                   </View>
                 )}
 
+                {/* Key Decision Factors */}
+                {result.key_factors && result.key_factors.length > 0 && (
+                  <View style={styles.conditionsBox}>
+                    <Text style={styles.conditionsTitle}>⚖️ KEY DECISION FACTORS</Text>
+                    {result.key_factors.map((f, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 12, color: f.type === 'positive' ? '#166534' : '#991b1b', flex: 1, paddingRight: 4 }}>
+                          {f.type === 'positive' ? '🟢' : '🔴'} {f.factor}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: f.type === 'positive' ? '#15803d' : '#dc2626' }}>
+                          {f.impact}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 {/* Conditions List */}
                 {result.conditions && result.conditions.length > 0 && (
                   <View style={styles.conditionsBox}>
