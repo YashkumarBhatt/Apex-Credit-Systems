@@ -184,13 +184,20 @@ export default function AuthScreen({ onLoginSuccess }) {
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  if (text.length > password.length + 1) {
+                    Alert.alert('Security Warning', 'Pasting the password is not allowed for security reasons. Please type it manually.');
+                    return;
+                  }
+                  setPassword(text);
+                }}
                 secureTextEntry={!showPassword}
                 placeholder="Enter passcode"
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
+                contextMenuHidden={true}
               />
               <TouchableOpacity
                 style={styles.eyeBtn}
