@@ -12,10 +12,10 @@
 
 The platform features two distinct mobile deployment options hosted on [GitHub Releases v1.0.0](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/tag/v1.0.0):
 
-* **📱 Standalone Native Mobile App (React Native - 150 MB):**  
+* **📱 Standalone Native Mobile App (React Native - 75 MB):**  
   [Download `Apex_Credit_Systems.apk`](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk)  
-  *Fully offline-capable, cross-platform Android application built with React Native, Expo SDK 52, Native SVG Charting, and bullet-masked passcode security.*
-* **⚡ Web App Wrapper (Capacitor - 3.8 MB):**  
+  *Cross-platform Android application built with React Native, Expo SDK 52, Native SVG Charting, local Async Storage session caching, and secure authentication.*
+* **⚡ Web App Wrapper (Capacitor - 4 MB):**  
   [Download `apex-credit-app.apk`](https://loan-approval-app-c7y0.onrender.com/download-apk)  
   *Ultra-lightweight Android wrapper loading the live cloud dashboard with native system integration.*
 
@@ -75,21 +75,18 @@ graph TD
 
 ---
 
-## 📁 Unified Repository Directory Structure
+## 📁 Repository Directory Structure
 
 ```text
 Apex-Credit-Systems/
-├── 01_ML_Pipeline_and_Research/      # Dual-track Jupyter notebooks & Joblib model trainers
-├── 02_Production_Web_App/            # FastAPI Web Server & Production Dashboard
-│   ├── main.py                       # API routes, ML dual-track inference & admin endpoints
-│   ├── models.py                     # Database schemas (Users, Predictions, Sessions)
-│   ├── static/                       # Web frontend (index.html, style.css, app.js)
-│   └── loan_approval.csv             # Baseline portfolio dataset (4,000+ records)
-├── 03_Native_Mobile_App/             # Cross-Platform React Native / Expo codebase
-│   ├── src/screens/                  # Native App Screens (Auth, Intake, Portfolio, Amortization, Admin)
-│   ├── android/                      # Native Android build project & Gradle configuration
-│   └── App.js                        # Mobile App entry point & Tab navigation
-└── 03_Presentation_and_Docs/        # System Architecture & Documentation Artifacts
+├── Web_App/                         # Production FastAPI Backend & Web Dashboard
+│   ├── main.py                      # API routes, ML dual-track inference & admin endpoints
+│   ├── models.py                    # Database schemas (Users, Predictions, Sessions)
+│   ├── static/                      # Web frontend UI (index.html, style.css, app.js, icons)
+│   └── loan_approval.csv            # Baseline portfolio dataset (4,000+ records)
+└── Mobile_App/                      # Cross-Platform React Native / Expo codebase
+    ├── src/screens/                 # Native App Screens (Auth, Intake, Portfolio, Amortization, Admin)
+    └── App.js                       # Mobile App entry point & Tab navigation
 ```
 
 ---
@@ -101,7 +98,7 @@ Apex-Credit-Systems/
 ```bash
 # Clone the repository
 git clone https://github.com/YashkumarBhatt/Apex-Credit-Systems.git
-cd Apex-Credit-Systems/02_Production_Web_App
+cd Apex-Credit-Systems/Web_App
 
 # Create and activate virtual environment
 python3 -m venv venv
@@ -120,7 +117,7 @@ Open your browser at `http://localhost:8000/`.
 ### 2. React Native Mobile App (Local Dev)
 
 ```bash
-cd Apex-Credit-Systems/03_Native_Mobile_App
+cd Apex-Credit-Systems/Mobile_App
 
 # Install node dependencies
 npm install
@@ -133,7 +130,7 @@ npx expo start
 
 ## ☁️ Production Deployment
 
-* **Web Service:** Deployed on **Render** linked to `main` branch with Root Directory set to `02_Production_Web_App` (`uvicorn main:app --host 0.0.0.0 --port $PORT`).
+* **Web Service:** Deployed on **Render** linked to `main` branch with Root Directory set to `Web_App` (`uvicorn main:app --host 0.0.0.0 --port $PORT`).
 * **Mobile Releases:** Binary builds hosted on [GitHub Releases](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases).
 
 ---
