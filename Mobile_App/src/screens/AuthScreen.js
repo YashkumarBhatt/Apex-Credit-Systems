@@ -198,6 +198,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                 autoCorrect={false}
                 spellCheck={false}
                 contextMenuHidden={true}
+                selectTextOnFocus={false}
               />
               <TouchableOpacity
                 style={styles.eyeBtn}
