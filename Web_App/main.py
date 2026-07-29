@@ -15,16 +15,42 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
+from sqlalchemy import text
 
 # Import our custom modules
 import models
 from database import engine, get_db, SessionLocal
 import auth
 
-
-
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
+
+def auto_migrate_db():
+    db = SessionLocal()
+    try:
+        # PostgreSQL / SQLite auto-schema alteration for newly added columns
+        migration_sqls = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP WITH TIME ZONE;"
+        ]
+        for query in migration_sqls:
+            try:
+                db.execute(text(query))
+                db.commit()
+            except Exception as err:
+                db.rollback()
+                # SQLite fallback
+                try:
+                    alt_query = query.replace("IF NOT EXISTS ", "")
+                    db.execute(text(alt_query))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+    finally:
+        db.close()
+
+auto_migrate_db()
 
 # --- Secure Master Admin Initialization ---
 MASTER_USERNAME = os.getenv("MASTER_USERNAME", "")
