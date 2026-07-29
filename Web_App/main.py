@@ -259,18 +259,29 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     if RESEND_API_KEY:
         try:
             resend_payload = json.dumps({
-                "from": "Apex Credit Systems <onboarding@resend.dev>",
+                "from": "Team APEX Security <onboarding@resend.dev>",
                 "to": [clean_email],
                 "subject": "Passcode Reset Request — Apex Credit Systems",
                 "html": f"""
-                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <h2 style="color:#4f46e5;margin-top:0;">Apex Credit Systems</h2>
-                    <p style="color:#334155;font-size:15px;">Hello <b>{user.username}</b>,</p>
-                    <p style="color:#334155;font-size:15px;line-height:1.5;">You requested a passcode reset for your analyst portal account. Click the button below to reset your passcode:</p>
-                    <div style="margin:24px 0;text-align:center;">
-                        <a href="{reset_url}" style="display:inline-block;padding:14px 28px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:15px;">Reset Passcode</a>
+                <div style="font-family:'Outfit',Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                    <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #6366f1;">
+                        <h2 style="color:#4f46e5;margin:0;font-size:24px;">Apex Credit Systems</h2>
+                        <p style="color:#64748b;margin:4px 0 0 0;font-size:13px;">Intelligent Underwriting & Security Portal</p>
                     </div>
-                    <p style="color:#64748b;font-size:13px;">This reset link will expire in 15 minutes. If you did not request a passcode reset, please ignore this email.</p>
+                    <div style="padding:24px 0;color:#334155;font-size:15px;line-height:1.6;">
+                        <p>Hi <b>{user.username}</b>,</p>
+                        <p>Here is the secure link to reset your analyst portal passcode:</p>
+                        <div style="margin:28px 0;text-align:center;">
+                            <a href="{reset_url}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;box-shadow:0 4px 12px rgba(79, 70, 229, 0.3);">Reset Passcode</a>
+                        </div>
+                        <p style="color:#64748b;font-size:13px;background:#f8fafc;padding:12px;border-radius:8px;border-left:4px solid #6366f1;">
+                            ⏱️ <b>Security Notice:</b> This link will automatically expire in 15 minutes. If you did not request a passcode reset, please ignore this email.
+                        </p>
+                    </div>
+                    <div style="padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:14px;">
+                        <p style="margin:0;">Kind Regards,</p>
+                        <p style="margin:4px 0 0 0;font-weight:bold;color:#4f46e5;">Team APEX Security</p>
+                    </div>
                 </div>
                 """
             }).encode('utf-8')
