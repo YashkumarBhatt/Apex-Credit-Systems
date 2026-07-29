@@ -58,7 +58,7 @@ def download_apk(request: Request):
             filename="apex-credit-app.apk"
         )
     return RedirectResponse(
-        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk",
+        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/apex-credit-app.apk",
         status_code=302
     )
 
