@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
 from pydantic import BaseModel
 import joblib
 import pandas as pd
@@ -57,18 +57,17 @@ def download_apk(request: Request):
             media_type="application/vnd.android.package-archive",
             filename="apex-credit-app.apk"
         )
-    raise HTTPException(status_code=404, detail="APK file not found")
+    return RedirectResponse(
+        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk",
+        status_code=302
+    )
 
 @app.api_route("/download-native-apk", methods=["GET", "HEAD"])
 def download_native_apk(request: Request):
-    apk_path = os.path.join(os.path.dirname(__file__), "apex-credit-native-app.apk")
-    if os.path.exists(apk_path):
-        return FileResponse(
-            apk_path,
-            media_type="application/vnd.android.package-archive",
-            filename="apex-credit-native-app.apk"
-        )
-    raise HTTPException(status_code=404, detail="Native APK file not found")
+    return RedirectResponse(
+        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk",
+        status_code=302
+    )
 
 
 
