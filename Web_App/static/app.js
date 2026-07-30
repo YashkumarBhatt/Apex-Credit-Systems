@@ -448,18 +448,57 @@ async function handlePredict(e) {
 /* ==============================
    API INTEGRATION: ADMIN EXPORT
 ============================== */
-function downloadCSV(endpoint) {
+async function downloadCSV(endpoint) {
     if (!authToken) return;
     
-    // Check if the endpoint already has query parameters
-    const separator = endpoint.includes('?') ? '&' : '?';
-    const finalUrl = `${API_BASE}${endpoint}${separator}token=${authToken}`;
-    
-    // WebViews block direct navigation to file downloads without a native DownloadListener.
-    // By using '_system', Capacitor/Cordova will open the URL in the phone's native external browser (Chrome).
-    // The native browser has a full DownloadManager and will successfully save the CSV.
-    // We fallback to '_blank' for standard desktop browsers.
-    window.open(finalUrl, '_system') || window.open(finalUrl, '_blank');
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.status === 401) { logout(); throw new Error("Unauthorized"); }
+        if (response.status === 404) { throw new Error("No data found to export."); }
+        if (!response.ok) { throw new Error("Export failed."); }
+        
+        let filename = endpoint.split('/').pop() + '.csv';
+        const disposition = response.headers.get('Content-Disposition');
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            filename = disposition.split('filename=')[1];
+        }
+        
+        const blob = await response.blob();
+        
+        // Strategy 1: Native Mobile Web Share API (Best for WebViews)
+        // This will pop up the Android "Save to Files" or "Share" sheet natively
+        if (navigator.share && navigator.canShare) {
+            const file = new File([blob], filename, { type: 'text/csv' });
+            if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: filename,
+                    text: 'Apex Credit Systems Data Export'
+                });
+                return;
+            }
+        }
+        
+        // Strategy 2: Standard Desktop Blob Download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+    } catch (err) {
+        // Strategy 3: Absolute Fallback (Direct Navigation)
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const finalUrl = `${API_BASE}${endpoint}${separator}token=${authToken}`;
+        window.open(finalUrl, '_system') || window.open(finalUrl, '_blank') || (window.location.href = finalUrl);
+    }
 }
 
 /* ==============================
