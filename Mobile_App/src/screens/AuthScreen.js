@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE } from '../config';
@@ -22,6 +23,13 @@ export default function AuthScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Passcode Recovery Modal State
+  const [forgotModalVisible, setForgotModalVisible] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotStatusMessage, setForgotStatusMessage] = useState('');
+  const [forgotStatusType, setForgotStatusType] = useState('success');
+
   const validatePasswordRequirements = (pass) => {
     return (
       pass.length >= 8 &&
@@ -33,33 +41,32 @@ export default function AuthScreen({ onLoginSuccess }) {
     );
   };
 
-  const handleForgotPassword = () => {
-    Alert.prompt(
-      "Passcode Recovery",
-      "Enter your registered professional email address to receive a passcode reset link:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Send Reset Link",
-          onPress: async (submittedEmail) => {
-            if (!submittedEmail || !submittedEmail.trim()) return;
-            try {
-              const res = await fetch(`${API_BASE}/forgot-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: submittedEmail.trim() })
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.detail || 'Request failed.');
-              Alert.alert('Passcode Reset Sent', data.message);
-            } catch (err) {
-              Alert.alert('Error', err.message);
-            }
-          }
-        }
-      ],
-      "plain-text"
-    );
+  const handleSendResetEmail = async () => {
+    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
+      setForgotStatusType('error');
+      setForgotStatusMessage('Please enter a valid professional email address.');
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotStatusMessage('');
+    try {
+      const res = await fetch(`${API_BASE}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Request failed.');
+
+      setForgotStatusType('success');
+      setForgotStatusMessage(data.message);
+    } catch (err) {
+      setForgotStatusType('error');
+      setForgotStatusMessage(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleAuth = async () => {
@@ -210,7 +217,7 @@ export default function AuthScreen({ onLoginSuccess }) {
           </View>
 
           {authMode === 'login' && (
-            <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
+            <TouchableOpacity onPress={() => setForgotModalVisible(true)} style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
               <Text style={{ fontSize: 13, color: '#38bdf8', fontWeight: '600' }}>Forgot Passcode?</Text>
             </TouchableOpacity>
           )}
@@ -241,6 +248,72 @@ export default function AuthScreen({ onLoginSuccess }) {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Passcode Recovery Overlay Modal */}
+      <Modal
+        visible={forgotModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setForgotModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Passcode Recovery 🔑</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter your registered professional email address to receive passcode reset instructions.
+            </Text>
+
+            {forgotStatusMessage ? (
+              <View style={[
+                styles.modalStatusBox,
+                forgotStatusType === 'success' ? styles.modalStatusSuccess : styles.modalStatusError
+              ]}>
+                <Text style={forgotStatusType === 'success' ? styles.modalStatusSuccessText : styles.modalStatusErrorText}>
+                  {forgotStatusType === 'success' ? '✓ ' : '⚠️ '}{forgotStatusMessage}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Registered Email</Text>
+              <TextInput
+                style={styles.input}
+                value={forgotEmail}
+                onChangeText={setForgotEmail}
+                placeholder="name@company.com"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+                spellCheck={false}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={handleSendResetEmail}
+              disabled={forgotLoading}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Send Reset Link</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => {
+                setForgotModalVisible(false);
+                setForgotStatusMessage('');
+                setForgotEmail('');
+              }}
+            >
+              <Text style={styles.secondaryBtnText}>Back to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -384,5 +457,80 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     marginTop: 20
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#1e293b',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#818cf8',
+    marginBottom: 6,
+    textAlign: 'center'
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 18
+  },
+  modalStatusBox: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1
+  },
+  modalStatusSuccess: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: '#22c55e'
+  },
+  modalStatusError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: '#ef4444'
+  },
+  modalStatusSuccessText: {
+    color: '#4ade80',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center'
+  },
+  modalStatusErrorText: {
+    color: '#fca5a5',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center'
+  },
+  secondaryBtn: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#475569'
+  },
+  secondaryBtnText: {
+    color: '#cbd5e1',
+    fontSize: 14,
+    fontWeight: '600'
   }
 });

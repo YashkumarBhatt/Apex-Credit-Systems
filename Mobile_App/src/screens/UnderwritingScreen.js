@@ -81,6 +81,8 @@ export default function UnderwritingScreen({ token, onSwitchToAmortization }) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Applicant Underwriting Intake</Text>
 
+        {/* Section 1: Financial Capacity & Loan Details */}
+        <Text style={styles.sectionHeader}>💰 Financial Capacity & Loan Terms</Text>
         <View style={styles.row}>
           <View style={[styles.inputGroup, styles.half]}>
             <Text style={styles.label}>Applicant Income (₹)</Text>
@@ -123,26 +125,70 @@ export default function UnderwritingScreen({ token, onSwitchToAmortization }) {
           </View>
         </View>
 
-        {/* Credit History Selector */}
+        {/* Section 2: Applicant Profile & Employment */}
+        <Text style={styles.sectionHeader}>👤 Applicant Profile & Demographics</Text>
+
+        {/* Employment Type Selector */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Credit History Status</Text>
+          <Text style={styles.label}>Employment Status</Text>
           <View style={styles.buttonSelector}>
             <TouchableOpacity
-              style={[styles.selectorBtn, creditHistory === '1.0' && styles.selectorBtnActive]}
-              onPress={() => setCreditHistory('1.0')}
+              style={[styles.selectorBtn, employmentType === 'Salaried' && styles.selectorBtnActive]}
+              onPress={() => setEmploymentType('Salaried')}
             >
-              <Text style={[styles.selectorText, creditHistory === '1.0' && styles.selectorTextActive]}>
-                Excellent (1.0)
+              <Text style={[styles.selectorText, employmentType === 'Salaried' && styles.selectorTextActive]}>
+                Salaried
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.selectorBtn, creditHistory === '0.0' && styles.selectorBtnActive]}
-              onPress={() => setCreditHistory('0.0')}
+              style={[styles.selectorBtn, employmentType === 'Self-Employed' && styles.selectorBtnActive]}
+              onPress={() => setEmploymentType('Self-Employed')}
             >
-              <Text style={[styles.selectorText, creditHistory === '0.0' && styles.selectorTextActive]}>
-                Poor / None (0.0)
+              <Text style={[styles.selectorText, employmentType === 'Self-Employed' && styles.selectorTextActive]}>
+                Self-Employed
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Marital Status Selector */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Marital Status</Text>
+          <View style={styles.buttonSelector}>
+            <TouchableOpacity
+              style={[styles.selectorBtn, maritalStatus === 'Married' && styles.selectorBtnActive]}
+              onPress={() => setMaritalStatus('Married')}
+            >
+              <Text style={[styles.selectorText, maritalStatus === 'Married' && styles.selectorTextActive]}>
+                Married
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.selectorBtn, maritalStatus === 'Single' && styles.selectorBtnActive]}
+              onPress={() => setMaritalStatus('Single')}
+            >
+              <Text style={[styles.selectorText, maritalStatus === 'Single' && styles.selectorTextActive]}>
+                Single
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Dependents Selector */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Number of Dependents</Text>
+          <View style={styles.buttonSelector}>
+            {['0', '1', '2', '3+'].map((dep) => (
+              <TouchableOpacity
+                key={dep}
+                style={[styles.selectorBtn, dependents === dep && styles.selectorBtnActive]}
+                onPress={() => setDependents(dep)}
+              >
+                <Text style={[styles.selectorText, dependents === dep && styles.selectorTextActive]}>
+                  {dep}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -164,6 +210,32 @@ export default function UnderwritingScreen({ token, onSwitchToAmortization }) {
             >
               <Text style={[styles.selectorText, education === 'Not Graduate' && styles.selectorTextActive]}>
                 Non-Graduate
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Section 3: Credit Bureau & Property Collateral */}
+        <Text style={styles.sectionHeader}>🏡 Credit Bureau & Collateral</Text>
+
+        {/* Credit History Selector */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Credit History Status</Text>
+          <View style={styles.buttonSelector}>
+            <TouchableOpacity
+              style={[styles.selectorBtn, creditHistory === '1.0' && styles.selectorBtnActive]}
+              onPress={() => setCreditHistory('1.0')}
+            >
+              <Text style={[styles.selectorText, creditHistory === '1.0' && styles.selectorTextActive]}>
+                Verified (1.0)
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.selectorBtn, creditHistory === '0.0' && styles.selectorBtnActive]}
+              onPress={() => setCreditHistory('0.0')}
+            >
+              <Text style={[styles.selectorText, creditHistory === '0.0' && styles.selectorTextActive]}>
+                Poor / None (0.0)
               </Text>
             </TouchableOpacity>
           </View>
@@ -316,7 +388,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 16
+    marginBottom: 12
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#818cf8',
+    marginTop: 10,
+    marginBottom: 12,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(129, 140, 248, 0.2)',
+    letterSpacing: 0.3
   },
   row: {
     flexDirection: 'row',
