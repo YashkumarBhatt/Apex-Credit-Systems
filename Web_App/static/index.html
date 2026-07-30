@@ -192,8 +192,8 @@
                         <!-- Data Export Section -->
                         <div class="glass-card" id="export-panel">
                             <h3>Data Export & Records</h3>
-                            <a id="btn-export-my-history" target="_blank" class="secondary-btn full-width"
-                                style="display:inline-block; text-align:center; text-decoration:none; margin-bottom:1rem; box-sizing:border-box;">📥 Download My Prediction History</a>
+                            <button id="btn-export-my-history" onclick="exportData(this.id, '/export/my-history')" class="secondary-btn full-width"
+                                style="margin-bottom:1rem;">📥 Download My Prediction History</button>
 
                             <!-- Master Admin Only -->
                             <div id="admin-panel" class="hidden"
@@ -201,15 +201,12 @@
                                 <h4 style="color:var(--danger); margin-bottom:1rem;">🛡️ Master Admin Controls</h4>
                                 <div
                                     style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 1.5rem;">
-                                    <a id="btn-export-users" target="_blank" class="secondary-btn"
-                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
-                                        Users</a>
-                                    <a id="btn-export-history" target="_blank" class="secondary-btn"
-                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
-                                        History</a>
-                                    <a id="btn-export-sessions" target="_blank" class="secondary-btn"
-                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
-                                        Sessions</a>
+                                    <button id="btn-export-users" onclick="exportData(this.id, '/admin/export/users')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥 Users</button>
+                                    <button id="btn-export-history" onclick="exportData(this.id, '/admin/export/history')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥 History</button>
+                                    <button id="btn-export-sessions" onclick="exportData(this.id, '/admin/export/sessions')" class="secondary-btn"
+                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥 Sessions</button>
                                 </div>
 
                                 <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">
@@ -354,7 +351,22 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=1.0.2"></script>
+    <!-- CSV Data Modal for WebViews -->
+    <div id="csv-modal" class="modal hidden">
+        <div class="modal-content glass-card" style="max-width: 600px; width: 90%;">
+            <h3>📄 Raw CSV Export</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+                A download has been triggered. If your browser blocks the file download, you can manually copy the raw CSV data below.
+            </p>
+            <textarea id="csv-content" readonly style="width: 100%; height: 250px; padding: 0.5rem; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(0,0,0,0.02); resize: none; margin-bottom: 1rem;"></textarea>
+            <div style="display: flex; gap: 1rem;">
+                <button class="primary-btn" onclick="copyCSVToClipboard()" style="flex: 1;">📋 Copy to Clipboard</button>
+                <button class="secondary-btn" onclick="document.getElementById('csv-modal').classList.add('hidden')" style="flex: 1;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
 </body>
 
 </html>

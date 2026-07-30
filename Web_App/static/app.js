@@ -91,15 +91,9 @@ function showDashboard() {
     
     document.getElementById('user-display').textContent = currentUsername || 'Analyst';
     
-    // Bind authenticated physical anchor tags for CSV exports
-    document.getElementById('btn-export-my-history').href = `${API_BASE}/export/my-history?token=${authToken}`;
-    
     // Toggle Admin Panel
     if (isMaster) {
         document.getElementById('admin-panel').classList.remove('hidden');
-        document.getElementById('btn-export-users').href = `${API_BASE}/admin/export/users?token=${authToken}`;
-        document.getElementById('btn-export-history').href = `${API_BASE}/admin/export/history?token=${authToken}`;
-        document.getElementById('btn-export-sessions').href = `${API_BASE}/admin/export/sessions?token=${authToken}`;
         fetchAdminUsers();
     } else {
         document.getElementById('admin-panel').classList.add('hidden');
@@ -451,31 +445,64 @@ async function handlePredict(e) {
     }
 }
 
-/* ==============================
-   API INTEGRATION: ADMIN EXPORT
-============================== */
-function downloadCSV(endpoint) {
+async function exportData(btnId, endpoint) {
     if (!authToken) return;
     
-    // Add token to query so the backend can authenticate the GET request
-    const separator = endpoint.includes('?') ? '&' : '?';
-    const finalUrl = `${API_BASE}${endpoint}${separator}token=${authToken}`;
+    const btn = document.getElementById(btnId);
+    const originalText = btn.innerText;
+    btn.innerText = "Exporting...";
     
-    // Simulate a physical click on an anchor tag with target="_blank".
-    // This perfectly mimics the "Native Android App" download links,
-    // which the Web App Wrapper correctly intercepts and routes to the OS Download Manager.
-    const a = document.createElement('a');
-    a.href = finalUrl;
-    a.target = '_blank';
-    a.style.display = 'none';
-    
-    document.body.appendChild(a);
-    a.click();
-    
-    // Cleanup DOM
-    setTimeout(() => {
-        document.body.removeChild(a);
-    }, 100);
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.status === 401) { logout(); throw new Error("Unauthorized"); }
+        if (response.status === 404) { throw new Error("No data found to export."); }
+        if (!response.ok) { throw new Error("Export failed."); }
+        
+        const text = await response.text();
+        
+        let filename = endpoint.split('/').pop() + '.csv';
+        const disposition = response.headers.get('Content-Disposition');
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            filename = disposition.split('filename=')[1];
+        }
+        
+        // 1. Display raw data in modal for WebViews
+        document.getElementById('csv-content').value = text;
+        document.getElementById('csv-modal').classList.remove('hidden');
+        
+        // 2. Also trigger standard download for standard browsers
+        const blob = new Blob([text], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+    } catch (err) {
+        alert("Error exporting: " + err.message);
+    } finally {
+        btn.innerText = originalText;
+    }
+}
+
+function copyCSVToClipboard() {
+    const text = document.getElementById('csv-content').value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Data successfully copied to your clipboard!");
+        }).catch(() => {
+            alert("Failed to copy automatically. Please select the text and copy it manually.");
+        });
+    } else {
+        alert("Clipboard API not supported. Please select the text and copy it manually.");
+    }
 }
 
 /* ==============================
