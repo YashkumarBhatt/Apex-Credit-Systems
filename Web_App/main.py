@@ -253,14 +253,23 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     base_url = str(request.base_url).rstrip('/')
     reset_url = f"{base_url}/#reset-passcode?token={token}"
 
-    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-    if RESEND_API_KEY:
+    BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
+    
+    if BREVO_API_KEY and SENDER_EMAIL:
         try:
-            resend_payload = json.dumps({
-                "from": "Team APEX Security <onboarding@resend.dev>",
-                "to": [clean_email],
+            brevo_payload = json.dumps({
+                "sender": {
+                    "name": "Team APEX Security",
+                    "email": SENDER_EMAIL
+                },
+                "to": [
+                    {
+                        "email": clean_email
+                    }
+                ],
                 "subject": "Passcode Reset Request — Apex Credit Systems",
-                "html": f"""
+                "htmlContent": f"""
                 <div style="font-family:'Outfit',Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
                     <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #6366f1;">
                         <h2 style="color:#4f46e5;margin:0;font-size:24px;">Apex Credit Systems</h2>
@@ -285,23 +294,24 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
             }).encode('utf-8')
             
             req_obj = urllib.request.Request(
-                "https://api.resend.com/emails", 
-                data=resend_payload, 
+                "https://api.brevo.com/v3/smtp/email", 
+                data=brevo_payload, 
                 headers={
-                    "Authorization": f"Bearer {RESEND_API_KEY}",
-                    "Content-Type": "application/json"
+                    "api-key": BREVO_API_KEY,
+                    "Content-Type": "application/json",
+                    "accept": "application/json"
                 }
             )
             urllib.request.urlopen(req_obj, timeout=10)
-            print(f"Passcode reset email dispatched successfully via Resend API to {clean_email}")
+            print(f"Passcode reset email dispatched successfully via Brevo API to {clean_email}")
         except Exception as e:
-            print(f"Resend API email error: {e}")
+            print(f"Brevo API email error: {e}")
     else:
-        print(f"RESEND_API_KEY not configured. Local Passcode Reset Link: {reset_url}")
+        print(f"BREVO credentials not configured. Local Passcode Reset Link: {reset_url}")
 
     return {
         "message": "If an account exists with this email, passcode reset instructions have been sent.",
-        "reset_url": reset_url if not RESEND_API_KEY else None
+        "reset_url": reset_url if not BREVO_API_KEY else None
     }
 
 @app.post("/reset-password")
