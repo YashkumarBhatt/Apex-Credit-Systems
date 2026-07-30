@@ -8,12 +8,7 @@ import pandas as pd
 import os
 import io
 import re
-import secrets
-import json
 import urllib.request
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -258,55 +253,55 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     base_url = str(request.base_url).rstrip('/')
     reset_url = f"{base_url}/#reset-passcode?token={token}"
 
-    GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
-    
-    if GMAIL_APP_PASSWORD and SENDER_EMAIL:
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+    if RESEND_API_KEY:
         try:
-            msg = MIMEMultipart()
-            msg['From'] = f"Team APEX Security <{SENDER_EMAIL}>"
-            msg['To'] = clean_email
-            msg['Subject'] = "Passcode Reset Request — Apex Credit Systems"
-            
-            html_content = f"""
-            <div style="font-family:'Outfit',Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-                <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #6366f1;">
-                    <h2 style="color:#4f46e5;margin:0;font-size:24px;">Apex Credit Systems</h2>
-                    <p style="color:#64748b;margin:4px 0 0 0;font-size:13px;">Intelligent Underwriting & Security Portal</p>
-                </div>
-                <div style="padding:24px 0;color:#334155;font-size:15px;line-height:1.6;">
-                    <p>Hi <b>{user.username}</b>,</p>
-                    <p>Here is the secure link to reset your analyst portal passcode:</p>
-                    <div style="margin:28px 0;text-align:center;">
-                        <a href="{reset_url}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;box-shadow:0 4px 12px rgba(79, 70, 229, 0.3);">Reset Passcode</a>
+            resend_payload = json.dumps({
+                "from": "Team APEX Security <onboarding@resend.dev>",
+                "to": [clean_email],
+                "subject": "Passcode Reset Request — Apex Credit Systems",
+                "html": f"""
+                <div style="font-family:'Outfit',Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                    <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #6366f1;">
+                        <h2 style="color:#4f46e5;margin:0;font-size:24px;">Apex Credit Systems</h2>
+                        <p style="color:#64748b;margin:4px 0 0 0;font-size:13px;">Intelligent Underwriting & Security Portal</p>
                     </div>
-                    <p style="color:#64748b;font-size:13px;background:#f8fafc;padding:12px;border-radius:8px;border-left:4px solid #6366f1;">
-                        ⏱️ <b>Security Notice:</b> This link will automatically expire in 15 minutes. If you did not request a passcode reset, please ignore this email.
-                    </p>
+                    <div style="padding:24px 0;color:#334155;font-size:15px;line-height:1.6;">
+                        <p>Hi <b>{user.username}</b>,</p>
+                        <p>Here is the secure link to reset your analyst portal passcode:</p>
+                        <div style="margin:28px 0;text-align:center;">
+                            <a href="{reset_url}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;box-shadow:0 4px 12px rgba(79, 70, 229, 0.3);">Reset Passcode</a>
+                        </div>
+                        <p style="color:#64748b;font-size:13px;background:#f8fafc;padding:12px;border-radius:8px;border-left:4px solid #6366f1;">
+                            ⏱️ <b>Security Notice:</b> This link will automatically expire in 15 minutes. If you did not request a passcode reset, please ignore this email.
+                        </p>
+                    </div>
+                    <div style="padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:14px;">
+                        <p style="margin:0;">Kind Regards,</p>
+                        <p style="margin:4px 0 0 0;font-weight:bold;color:#4f46e5;">Team APEX Security</p>
+                    </div>
                 </div>
-                <div style="padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:14px;">
-                    <p style="margin:0;">Kind Regards,</p>
-                    <p style="margin:4px 0 0 0;font-weight:bold;color:#4f46e5;">Team APEX Security</p>
-                </div>
-            </div>
-            """
-            msg.attach(MIMEText(html_content, 'html'))
+                """
+            }).encode('utf-8')
             
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(SENDER_EMAIL, GMAIL_APP_PASSWORD)
-            server.send_message(msg)
-            server.quit()
-            
-            print(f"Passcode reset email dispatched successfully via Gmail SMTP to {clean_email}")
+            req_obj = urllib.request.Request(
+                "https://api.resend.com/emails", 
+                data=resend_payload, 
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+            urllib.request.urlopen(req_obj, timeout=10)
+            print(f"Passcode reset email dispatched successfully via Resend API to {clean_email}")
         except Exception as e:
-            print(f"Gmail SMTP email error: {e}")
+            print(f"Resend API email error: {e}")
     else:
-        print(f"SMTP credentials not configured. Local Passcode Reset Link: {reset_url}")
+        print(f"RESEND_API_KEY not configured. Local Passcode Reset Link: {reset_url}")
 
     return {
         "message": "If an account exists with this email, passcode reset instructions have been sent.",
-        "reset_url": reset_url if not GMAIL_APP_PASSWORD else None
+        "reset_url": reset_url if not RESEND_API_KEY else None
     }
 
 @app.post("/reset-password")
