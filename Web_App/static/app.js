@@ -453,10 +453,13 @@ function downloadCSV(endpoint) {
     
     // Check if the endpoint already has query parameters
     const separator = endpoint.includes('?') ? '&' : '?';
+    const finalUrl = `${API_BASE}${endpoint}${separator}token=${authToken}`;
     
-    // Direct the browser to the file URL. The backend get_current_user now accepts the token query param.
-    // This correctly triggers the Android Download Manager inside WebViews (Capacitor).
-    window.location.href = `${API_BASE}${endpoint}${separator}token=${authToken}`;
+    // WebViews block direct navigation to file downloads without a native DownloadListener.
+    // By using '_system', Capacitor/Cordova will open the URL in the phone's native external browser (Chrome).
+    // The native browser has a full DownloadManager and will successfully save the CSV.
+    // We fallback to '_blank' for standard desktop browsers.
+    window.open(finalUrl, '_system') || window.open(finalUrl, '_blank');
 }
 
 /* ==============================
