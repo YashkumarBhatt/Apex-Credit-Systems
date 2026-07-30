@@ -1,8 +1,8 @@
 # Apex Credit Systems — Enterprise AI Dual-Track Underwriting Engine
 
 [![Live Web Dashboard](https://img.shields.io/badge/Live_App-Render-4f46e5?style=for-the-badge&logo=render)](https://loan-approval-app-c7y0.onrender.com/)
-[![GitHub Release](https://img.shields.io/badge/GitHub_Release-v1.0.0-10b981?style=for-the-badge&logo=github)](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/tag/v1.0.0)
-[![React Native App](https://img.shields.io/badge/Mobile_App-React_Native-38bdf8?style=for-the-badge&logo=react)](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk)
+[![GitHub Release](https://img.shields.io/badge/GitHub_Release-v1.1.0-10b981?style=for-the-badge&logo=github)](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/tag/v1.1.0)
+[![React Native App](https://img.shields.io/badge/Mobile_App-React_Native-38bdf8?style=for-the-badge&logo=react)](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.1.0/Apex_Credit_Systems.apk)
 
 **Apex Credit Systems** is an end-to-end, enterprise-grade machine learning underwriting platform and cross-platform mobile suite. It combines a **Dual-Track Machine Learning Pipeline** for credit decisioning, an **Interactive Amortization Simulator**, dynamic **Portfolio Analytics**, multi-factor **Master Admin Security Controls**, and a standalone **React Native Mobile Application**.
 
@@ -10,10 +10,10 @@
 
 ## 📱 Mobile Applications Suite & Releases
 
-The platform features two distinct mobile deployment options hosted on [GitHub Releases v1.0.0](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/tag/v1.0.0):
+The platform features two distinct mobile deployment options hosted on [GitHub Releases v1.1.0](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/tag/v1.1.0):
 
 * **📱 Standalone Native Mobile App (React Native - 75 MB):**  
-  [Download `Apex_Credit_Systems.apk`](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk)  
+  [Download `Apex_Credit_Systems.apk`](https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.1.0/Apex_Credit_Systems.apk)  
   *Cross-platform Android application built with React Native, Expo SDK 52, Native SVG Charting, local Async Storage session caching, and secure authentication.*
 * **⚡ Web App Wrapper (Capacitor - 4 MB):**  
   [Download `apex-credit-app.apk`](https://loan-approval-app-c7y0.onrender.com/download-apk)  
@@ -60,7 +60,7 @@ graph TD
   * **Session Activity Logs:** Live login/logout timestamps and IP tracking.
   * **Audit History:** Full system-wide underwriting decision history.
   * **Analyst Privilege Controls:** Account activation/suspension toggles and permanent account erasure.
-  * **CSV Data Exports:** Download Users, Sessions, and Audit logs in CSV format.
+  * **CSV Data Exports:** Download Users, Sessions, and Audit logs in CSV format, featuring a robust **Raw Data Modal fallback** designed specifically to bypass mobile WebView download restrictions.
 
 ---
 
