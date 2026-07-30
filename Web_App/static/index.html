@@ -192,8 +192,8 @@
                         <!-- Data Export Section -->
                         <div class="glass-card" id="export-panel">
                             <h3>Data Export & Records</h3>
-                            <button onclick="downloadCSV('/export/my-history')" class="secondary-btn full-width"
-                                style="margin-bottom:1rem;">📥 Download My Prediction History</button>
+                            <a id="btn-export-my-history" target="_blank" class="secondary-btn full-width"
+                                style="display:inline-block; text-align:center; text-decoration:none; margin-bottom:1rem; box-sizing:border-box;">📥 Download My Prediction History</a>
 
                             <!-- Master Admin Only -->
                             <div id="admin-panel" class="hidden"
@@ -201,15 +201,15 @@
                                 <h4 style="color:var(--danger); margin-bottom:1rem;">🛡️ Master Admin Controls</h4>
                                 <div
                                     style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 1.5rem;">
-                                    <button onclick="downloadCSV('/admin/export/users')" class="secondary-btn"
-                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
-                                        Users</button>
-                                    <button onclick="downloadCSV('/admin/export/history')" class="secondary-btn"
-                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
-                                        History</button>
-                                    <button onclick="downloadCSV('/admin/export/sessions')" class="secondary-btn"
-                                        style="border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem;">📥
-                                        Sessions</button>
+                                    <a id="btn-export-users" target="_blank" class="secondary-btn"
+                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
+                                        Users</a>
+                                    <a id="btn-export-history" target="_blank" class="secondary-btn"
+                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
+                                        History</a>
+                                    <a id="btn-export-sessions" target="_blank" class="secondary-btn"
+                                        style="display:inline-block; text-align:center; text-decoration:none; border-color:rgba(239, 68, 68, 0.4); color:var(--danger); font-size: 0.8rem; padding: 0.5rem; box-sizing:border-box;">📥
+                                        Sessions</a>
                                 </div>
 
                                 <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">

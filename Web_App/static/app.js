@@ -91,9 +91,15 @@ function showDashboard() {
     
     document.getElementById('user-display').textContent = currentUsername || 'Analyst';
     
+    // Bind authenticated physical anchor tags for CSV exports
+    document.getElementById('btn-export-my-history').href = `${API_BASE}/export/my-history?token=${authToken}`;
+    
     // Toggle Admin Panel
     if (isMaster) {
         document.getElementById('admin-panel').classList.remove('hidden');
+        document.getElementById('btn-export-users').href = `${API_BASE}/admin/export/users?token=${authToken}`;
+        document.getElementById('btn-export-history').href = `${API_BASE}/admin/export/history?token=${authToken}`;
+        document.getElementById('btn-export-sessions').href = `${API_BASE}/admin/export/sessions?token=${authToken}`;
         fetchAdminUsers();
     } else {
         document.getElementById('admin-panel').classList.add('hidden');
