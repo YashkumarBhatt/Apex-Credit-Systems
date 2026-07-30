@@ -15,9 +15,9 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.apex.creditsystems.native",
+      "package": "com.apex.creditsystems.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#4f46e5"
       }
     },
