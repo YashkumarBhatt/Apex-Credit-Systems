@@ -169,12 +169,6 @@ class UserCreate(BaseModel):
     email: Optional[str] = None
     password: str
 
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
 
 class LoanApplication(BaseModel):
     ApplicantIncome: float
@@ -238,108 +232,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return {"message": "User registered successfully", "user_id": new_user.id}
 
-@app.post("/forgot-password")
-def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
-    clean_email = req.email.strip().lower()
-    user = db.query(models.User).filter(models.User.email == clean_email).first()
-    if not user:
-        return {"message": "If an account exists with this email, passcode reset instructions have been sent."}
-    
-    token = secrets.token_urlsafe(32)
-    user.reset_token = token
-    user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
-    db.commit()
-
-    base_url = str(request.base_url).rstrip('/')
-    reset_url = f"{base_url}/#reset-passcode?token={token}"
-
-    BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
-    
-    if BREVO_API_KEY and SENDER_EMAIL:
-        try:
-            brevo_payload = json.dumps({
-                "sender": {
-                    "name": "Team APEX Security",
-                    "email": SENDER_EMAIL
-                },
-                "to": [
-                    {
-                        "email": clean_email
-                    }
-                ],
-                "subject": "Passcode Reset Request — Apex Credit Systems",
-                "htmlContent": f"""
-                <div style="font-family:'Outfit',Arial,sans-serif;max-width:600px;margin:0 auto;padding:28px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-                    <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #6366f1;">
-                        <h2 style="color:#4f46e5;margin:0;font-size:24px;">Apex Credit Systems</h2>
-                        <p style="color:#64748b;margin:4px 0 0 0;font-size:13px;">Intelligent Underwriting & Security Portal</p>
-                    </div>
-                    <div style="padding:24px 0;color:#334155;font-size:15px;line-height:1.6;">
-                        <p>Hi <b>{user.username}</b>,</p>
-                        <p>Here is the secure link to reset your analyst portal passcode:</p>
-                        <div style="margin:28px 0;text-align:center;">
-                            <a href="{reset_url}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);color:#ffffff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;box-shadow:0 4px 12px rgba(79, 70, 229, 0.3);">Reset Passcode</a>
-                        </div>
-                        <p style="color:#64748b;font-size:13px;background:#f8fafc;padding:12px;border-radius:8px;border-left:4px solid #6366f1;">
-                            ⏱️ <b>Security Notice:</b> This link will automatically expire in 15 minutes. If you did not request a passcode reset, please ignore this email.
-                        </p>
-                    </div>
-                    <div style="padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:14px;">
-                        <p style="margin:0;">Kind Regards,</p>
-                        <p style="margin:4px 0 0 0;font-weight:bold;color:#4f46e5;">Team APEX Security</p>
-                    </div>
-                </div>
-                """
-            }).encode('utf-8')
-            
-            req_obj = urllib.request.Request(
-                "https://api.brevo.com/v3/smtp/email", 
-                data=brevo_payload, 
-                headers={
-                    "api-key": BREVO_API_KEY,
-                    "Content-Type": "application/json",
-                    "accept": "application/json"
-                }
-            )
-            urllib.request.urlopen(req_obj, timeout=10)
-            print(f"Passcode reset email dispatched successfully via Brevo API to {clean_email}")
-        except Exception as e:
-            print(f"Brevo API email error: {e}")
-    else:
-        print(f"BREVO credentials not configured. Local Passcode Reset Link: {reset_url}")
-
-    return {
-        "message": "If an account exists with this email, passcode reset instructions have been sent.",
-        "reset_url": reset_url if not BREVO_API_KEY else None
-    }
-
-@app.post("/reset-password")
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if not req.token:
-        raise HTTPException(status_code=400, detail="Invalid or missing reset token.")
-    
-    user = db.query(models.User).filter(models.User.reset_token == req.token).first()
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
-    
-    if user.reset_token_expiry:
-        expiry = user.reset_token_expiry
-        if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)
-        if datetime.now(timezone.utc) > expiry:
-            raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new link.")
-    
-    pwd = req.new_password
-    if len(pwd) < 8 or not re.search(r"[A-Z]", pwd) or not re.search(r"[a-z]", pwd) or not re.search(r"[0-9]", pwd) or not re.search(r"[^A-Za-z0-9]", pwd) or pwd == user.username:
-        raise HTTPException(status_code=400, detail="New password does not meet security requirements.")
-    
-    user.hashed_password = auth.get_password_hash(pwd)
-    user.reset_token = None
-    user.reset_token_expiry = None
-    db.commit()
-    
-    return {"message": "Passcode reset successfully. You can now log in with your new passcode."}
 
 @app.post("/login")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

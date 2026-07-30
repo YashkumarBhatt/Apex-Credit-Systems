@@ -23,12 +23,7 @@ export default function AuthScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Passcode Recovery Modal State
-  const [forgotModalVisible, setForgotModalVisible] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotStatusMessage, setForgotStatusMessage] = useState('');
-  const [forgotStatusType, setForgotStatusType] = useState('success');
+
 
   const validatePasswordRequirements = (pass) => {
     return (
@@ -41,33 +36,6 @@ export default function AuthScreen({ onLoginSuccess }) {
     );
   };
 
-  const handleSendResetEmail = async () => {
-    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
-      setForgotStatusType('error');
-      setForgotStatusMessage('Please enter a valid professional email address.');
-      return;
-    }
-
-    setForgotLoading(true);
-    setForgotStatusMessage('');
-    try {
-      const res = await fetch(`${API_BASE}/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail.trim() })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Request failed.');
-
-      setForgotStatusType('success');
-      setForgotStatusMessage(data.message);
-    } catch (err) {
-      setForgotStatusType('error');
-      setForgotStatusMessage(err.message);
-    } finally {
-      setForgotLoading(false);
-    }
-  };
 
   const handleAuth = async () => {
     setErrorMessage('');
@@ -216,11 +184,7 @@ export default function AuthScreen({ onLoginSuccess }) {
             </View>
           </View>
 
-          {authMode === 'login' && (
-            <TouchableOpacity onPress={() => setForgotModalVisible(true)} style={{ alignSelf: 'flex-end', marginBottom: 16 }}>
-              <Text style={{ fontSize: 13, color: '#38bdf8', fontWeight: '600' }}>Forgot Passcode?</Text>
-            </TouchableOpacity>
-          )}
+
 
           {authMode === 'register' && (
             <View style={styles.reqBox}>
@@ -249,71 +213,7 @@ export default function AuthScreen({ onLoginSuccess }) {
         </View>
       </ScrollView>
 
-      {/* Passcode Recovery Overlay Modal */}
-      <Modal
-        visible={forgotModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setForgotModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Passcode Recovery 🔑</Text>
-            <Text style={styles.modalSubtitle}>
-              Enter your registered professional email address to receive passcode reset instructions.
-            </Text>
 
-            {forgotStatusMessage ? (
-              <View style={[
-                styles.modalStatusBox,
-                forgotStatusType === 'success' ? styles.modalStatusSuccess : styles.modalStatusError
-              ]}>
-                <Text style={forgotStatusType === 'success' ? styles.modalStatusSuccessText : styles.modalStatusErrorText}>
-                  {forgotStatusType === 'success' ? '✓ ' : '⚠️ '}{forgotStatusMessage}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Registered Email</Text>
-              <TextInput
-                style={styles.input}
-                value={forgotEmail}
-                onChangeText={setForgotEmail}
-                placeholder="name@company.com"
-                placeholderTextColor="#94a3b8"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoCorrect={false}
-                spellCheck={false}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={handleSendResetEmail}
-              disabled={forgotLoading}
-            >
-              {forgotLoading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Send Reset Link</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              onPress={() => {
-                setForgotModalVisible(false);
-                setForgotStatusMessage('');
-                setForgotEmail('');
-              }}
-            >
-              <Text style={styles.secondaryBtnText}>Back to Login</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

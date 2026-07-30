@@ -11,18 +11,7 @@ let currentAuthMode = 'login';
 let portfolioDataCache = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Check for password reset token in URL hash
-    if (window.location.hash && window.location.hash.includes('token=')) {
-        const token = window.location.hash.split('token=')[1].split('&')[0];
-        if (token) {
-            document.getElementById('reset-token-input').value = token;
-            document.getElementById('auth-view').classList.add('hidden');
-            document.getElementById('auth-view').classList.remove('active');
-            document.getElementById('reset-modal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('reset-modal').classList.add('active'), 10);
-            return;
-        }
-    }
+
 
     if (authToken) {
         showDashboard();
@@ -45,107 +34,17 @@ function switchAuthTab(mode) {
     document.getElementById('auth-error').textContent = '';
     
     const emailGroup = document.getElementById('email-group');
-    const forgotLink = document.getElementById('forgot-link-container');
     const checklist = document.getElementById('password-checklist');
 
     if (mode === 'register') {
         if (emailGroup) emailGroup.classList.remove('hidden');
-        if (forgotLink) forgotLink.classList.add('hidden');
         if (checklist) checklist.classList.remove('hidden');
     } else {
         if (emailGroup) emailGroup.classList.add('hidden');
-        if (forgotLink) forgotLink.classList.remove('hidden');
         if (checklist) checklist.classList.add('hidden');
     }
 }
 
-function openForgotModal() {
-    document.getElementById('auth-view').classList.remove('active');
-    setTimeout(() => {
-        document.getElementById('auth-view').classList.add('hidden');
-        document.getElementById('forgot-modal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('forgot-modal').classList.add('active'), 10);
-    }, 200);
-}
-
-function closeForgotModal() {
-    document.getElementById('forgot-modal').classList.remove('active');
-    setTimeout(() => {
-        document.getElementById('forgot-modal').classList.add('hidden');
-        document.getElementById('auth-view').classList.remove('hidden');
-        setTimeout(() => document.getElementById('auth-view').classList.add('active'), 10);
-    }, 200);
-}
-
-async function handleForgotPassword(e) {
-    e.preventDefault();
-    const email = document.getElementById('forgot-email').value;
-    const statusDiv = document.getElementById('forgot-status');
-    const submitBtn = document.getElementById('forgot-submit-btn');
-
-    statusDiv.style.color = '#334155';
-    statusDiv.textContent = 'Sending reset link...';
-    submitBtn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_BASE}/forgot-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Request failed');
-
-        statusDiv.style.color = 'var(--success)';
-        statusDiv.innerHTML = `✓ ${data.message}`;
-
-        if (data.reset_url) {
-            statusDiv.innerHTML += `<br><br><b>Local Test Reset Link:</b><br><a href="${data.reset_url}" style="color:#4f46e5;word-break:break-all;">${data.reset_url}</a>`;
-        }
-    } catch (err) {
-        statusDiv.style.color = 'var(--danger)';
-        statusDiv.textContent = `✗ ${err.message}`;
-    } finally {
-        submitBtn.disabled = false;
-    }
-}
-
-async function handleResetPassword(e) {
-    e.preventDefault();
-    const token = document.getElementById('reset-token-input').value;
-    const new_password = document.getElementById('new-passcode').value;
-    const statusDiv = document.getElementById('reset-status');
-    const submitBtn = document.getElementById('reset-submit-btn');
-
-    statusDiv.style.color = '#334155';
-    statusDiv.textContent = 'Updating passcode...';
-    submitBtn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_BASE}/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, new_password })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Reset failed');
-
-        statusDiv.style.color = 'var(--success)';
-        statusDiv.textContent = `✓ ${data.message}`;
-
-        setTimeout(() => {
-            window.location.hash = '';
-            document.getElementById('reset-modal').classList.remove('active');
-            document.getElementById('reset-modal').classList.add('hidden');
-            showAuth();
-        }, 2000);
-    } catch (err) {
-        statusDiv.style.color = 'var(--danger)';
-        statusDiv.textContent = `✗ ${err.message}`;
-    } finally {
-        submitBtn.disabled = false;
-    }
-}
 
 function validatePassword() {
     if (currentAuthMode !== 'register') return;
