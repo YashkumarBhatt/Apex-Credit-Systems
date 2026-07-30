@@ -185,8 +185,19 @@ class LoanApplication(BaseModel):
 class LogoutRequest(BaseModel):
     session_id: int
 
-# Dependency to verify the user's token
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+# Dependency to verify the user's token (supports both Header and Query Parameter)
+def get_token_from_request(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.split(" ")[1]
+    
+    query_token = request.query_params.get("token")
+    if query_token:
+        return query_token
+        
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+def get_current_user(token: str = Depends(get_token_from_request), db: Session = Depends(get_db)):
     try:
         payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         username: str = payload.get("sub")

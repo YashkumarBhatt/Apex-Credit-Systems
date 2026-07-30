@@ -451,34 +451,12 @@ async function handlePredict(e) {
 function downloadCSV(endpoint) {
     if (!authToken) return;
     
-    fetch(`${API_BASE}${endpoint}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-    })
-    .then(response => {
-        if(response.status === 401) { logout(); throw new Error("Unauthorized"); }
-        if(response.status === 404) { throw new Error("No data found to export."); }
-        if(!response.ok) { throw new Error("Export failed."); }
-        
-        // Extract filename from Content-Disposition if present
-        let filename = endpoint.split('/').pop() + '.csv';
-        const disposition = response.headers.get('Content-Disposition');
-        if (disposition && disposition.indexOf('filename=') !== -1) {
-            filename = disposition.split('filename=')[1];
-        }
-        return response.blob().then(blob => ({ blob, filename }));
-    })
-    .then(({blob, filename}) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-    })
-    .catch(err => alert(err.message));
+    // Check if the endpoint already has query parameters
+    const separator = endpoint.includes('?') ? '&' : '?';
+    
+    // Direct the browser to the file URL. The backend get_current_user now accepts the token query param.
+    // This correctly triggers the Android Download Manager inside WebViews (Capacitor).
+    window.location.href = `${API_BASE}${endpoint}${separator}token=${authToken}`;
 }
 
 /* ==============================
