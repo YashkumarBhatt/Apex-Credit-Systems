@@ -119,7 +119,7 @@ def download_apk(request: Request):
 @app.api_route("/download-native-apk", methods=["GET", "HEAD"])
 def download_native_apk(request: Request):
     return RedirectResponse(
-        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.0.0/Apex_Credit_Systems.apk",
+        url="https://github.com/YashkumarBhatt/Apex-Credit-Systems/releases/download/v1.1.0/Apex_Credit_Systems.apk",
         status_code=302
     )
 
