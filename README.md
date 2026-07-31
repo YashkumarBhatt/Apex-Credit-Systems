@@ -84,10 +84,20 @@ Apex-Credit-Systems/
 │   ├── models.py                    # Database schemas (Users, Predictions, Sessions)
 │   ├── static/                      # Web frontend UI (index.html, style.css, app.js, icons)
 │   └── loan_approval.csv            # Baseline portfolio dataset (4,000+ records)
-└── Mobile_App/                      # Cross-Platform React Native / Expo codebase
-    ├── src/screens/                 # Native App Screens (Auth, Intake, Portfolio, Amortization, Admin)
-    └── App.js                       # Mobile App entry point & Tab navigation
+├── Mobile_App/                      # Cross-Platform React Native / Expo codebase
+│   ├── src/screens/                 # Native App Screens (Auth, Intake, Portfolio, Amortization, Admin)
+│   └── App.js                       # Mobile App entry point & Tab navigation
+└── Apex_Credit_Systems_Comprehensive_Engineering_Report.md
+                                     # Full technical architecture & methodology report
 ```
+
+---
+
+## 📄 Documentation
+
+For a comprehensive deep-dive into every architectural decision, data science methodology, security hardening step, and deployment strategy, see the full engineering report:
+
+> **[📄 Comprehensive Engineering & Architecture Report](Apex_Credit_Systems_Comprehensive_Engineering_Report.md)**
 
 ---
 
