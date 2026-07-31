@@ -87,8 +87,6 @@ Apex-Credit-Systems/
 ├── Mobile_App/                      # Cross-Platform React Native / Expo codebase
 │   ├── src/screens/                 # Native App Screens (Auth, Intake, Portfolio, Amortization, Admin)
 │   └── App.js                       # Mobile App entry point & Tab navigation
-└── Apex_Credit_Systems_Comprehensive_Engineering_Report.md
-                                     # Full technical architecture & methodology report
 ```
 
 ---
