@@ -93,13 +93,6 @@ Apex-Credit-Systems/
 
 ---
 
-## 📄 Documentation
-
-For a comprehensive deep-dive into every architectural decision, data science methodology, security hardening step, and deployment strategy, see the full engineering report:
-
-> **[📄 Comprehensive Engineering & Architecture Report](Apex_Credit_Systems_Comprehensive_Engineering_Report.md)**
-
----
 
 ## 🚀 Quickstart & Local Setup
 
