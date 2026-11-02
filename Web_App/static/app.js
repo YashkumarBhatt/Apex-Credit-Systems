@@ -1,205 +1,314 @@
-// The API is served from the same host
+/* ═══════════════════════════════════════════════════════════════
+   APEX CREDIT SYSTEMS — Frontend Application Logic v2.1
+   Executive Midnight Navy & Royal Blue | Complete Theme Reactivity
+═══════════════════════════════════════════════════════════════ */
+
+'use strict';
+
 const API_BASE = window.location.origin;
 
-let authToken = localStorage.getItem('apex_token');
-let currentUsername = localStorage.getItem('apex_user');
-let sessionID = localStorage.getItem('apex_session');
-let isMaster = localStorage.getItem('apex_is_master') === 'true';
-let currentAuthMode = 'login'; 
-
-// Data cache for Portfolio Dashboard
+/* ─────────────────────────────────────
+   STATE
+───────────────────────────────────── */
+let authToken          = localStorage.getItem('apex_token');
+let currentUsername    = localStorage.getItem('apex_user');
+let sessionID          = localStorage.getItem('apex_session');
+let isMaster           = localStorage.getItem('apex_is_master') === 'true';
+let currentAuthMode    = 'login';
 let portfolioDataCache = null;
+let activeTab          = 'eligibility';
+let lastPredictionData = null;
 
+/* ─────────────────────────────────────
+   THEME MANAGEMENT (Entire Page)
+───────────────────────────────────── */
+function initTheme() {
+    const saved = localStorage.getItem('apex_theme') || 'dark';
+    applyTheme(saved);
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('apex_theme', theme);
+
+    // Update meta theme-color for browser chromes
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#080d1a' : '#ffffff');
+
+    // Toggle icons
+    const sun  = document.getElementById('icon-sun');
+    const moon = document.getElementById('icon-moon');
+    if (sun && moon) {
+        if (theme === 'dark') {
+            sun.style.display  = 'block';
+            moon.style.display = 'none';
+        } else {
+            sun.style.display  = 'none';
+            moon.style.display = 'block';
+        }
+    }
+
+    // Refresh charts with updated theme fonts, gridlines, and backgrounds
+    if (portfolioDataCache) {
+        renderPortfolioCharts();
+    }
+    calculateAmortization();
+
+    // Re-render prediction output if present
+    if (lastPredictionData) {
+        renderPredictionResult(lastPredictionData);
+    }
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+/* ─────────────────────────────────────
+   BOOTSTRAP
+───────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-
+    initTheme();
+    injectMobileNav();
 
     if (authToken) {
         showDashboard();
+        fetchPortfolioData();
     } else {
         showAuth();
     }
 });
 
-/* ==============================
-   UI NAVIGATION & STATE
-============================== */
-function switchAuthTab(mode) {
-    currentAuthMode = mode;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    if (typeof event !== 'undefined' && event && event.target) {
-        event.target.classList.add('active');
-    }
-    
-    document.getElementById('auth-submit-btn').textContent = mode === 'login' ? 'Access System' : 'Create Credentials';
-    document.getElementById('auth-error').textContent = '';
-    
-    const emailGroup = document.getElementById('email-group');
-    const checklist = document.getElementById('password-checklist');
-
-    if (mode === 'register') {
-        if (emailGroup) emailGroup.classList.remove('hidden');
-        if (checklist) checklist.classList.remove('hidden');
-    } else {
-        if (emailGroup) emailGroup.classList.add('hidden');
-        if (checklist) checklist.classList.add('hidden');
-    }
+/* ─────────────────────────────────────
+   MOBILE BOTTOM NAVIGATION
+───────────────────────────────────── */
+function injectMobileNav() {
+    if (document.getElementById('mobile-nav')) return;
+    const nav = document.createElement('div');
+    nav.className = 'mobile-bottom-nav';
+    nav.id = 'mobile-nav';
+    nav.innerHTML = `
+        <button class="m-nav-btn active" data-tab="eligibility" onclick="switchMainTab('eligibility', this)">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            Eligibility
+        </button>
+        <button class="m-nav-btn" data-tab="portfolio" onclick="switchMainTab('portfolio', this)">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            Portfolio
+        </button>
+        <button class="m-nav-btn" data-tab="amortization" onclick="switchMainTab('amortization', this)">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Amortization
+        </button>
+    `;
+    document.getElementById('app-root').appendChild(nav);
 }
 
+/* ─────────────────────────────────────
+   AUTHENTICATION UI
+───────────────────────────────────── */
+function switchAuthTab(mode) {
+    currentAuthMode = mode;
+
+    document.querySelectorAll('.auth-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.auth-tab-btn').forEach(btn => {
+        if ((mode === 'login' && btn.textContent.trim() === 'Login') ||
+            (mode === 'register' && btn.textContent.trim() === 'Register')) {
+            btn.classList.add('active');
+        }
+    });
+
+    const emailGroup  = document.getElementById('email-group');
+    const checklist   = document.getElementById('password-checklist');
+    const submitBtn   = document.getElementById('auth-btn-label');
+    const formTitle   = document.getElementById('auth-form-title');
+    const formSub     = document.getElementById('auth-form-sub');
+    const errorDiv    = document.getElementById('auth-error');
+    if (errorDiv) errorDiv.textContent = '';
+
+    if (mode === 'register') {
+        emailGroup?.classList.remove('hidden');
+        checklist?.classList.remove('hidden');
+        if (submitBtn)  submitBtn.textContent = 'Create Credentials';
+        if (formTitle)  formTitle.textContent = 'Create an Account';
+        if (formSub)    formSub.textContent   = 'Register to access the underwriting engine.';
+    } else {
+        emailGroup?.classList.add('hidden');
+        checklist?.classList.add('hidden');
+        if (submitBtn)  submitBtn.textContent = 'Access System';
+        if (formTitle)  formTitle.textContent = 'Analyst Sign In';
+        if (formSub)    formSub.textContent   = 'Enter your credentials to access the system.';
+    }
+}
 
 function validatePassword() {
     if (currentAuthMode !== 'register') return;
-    
     const password = document.getElementById('password').value;
     const username = document.getElementById('username').value;
-    
-    const updateReq = (id, isValid) => {
+
+    const set = (id, valid, text) => {
         const el = document.getElementById(id);
         if (!el) return;
-        if(isValid) {
-            el.style.color = 'var(--success)';
-            el.innerHTML = '✓ ' + el.innerHTML.substring(2);
-        } else {
-            el.style.color = 'var(--danger)';
-            el.innerHTML = '✗ ' + el.innerHTML.substring(2);
-        }
+        el.className = 'pw-req ' + (valid ? 'valid' : 'invalid');
+        el.textContent = (valid ? '✓ ' : '✗ ') + text;
     };
-    
-    updateReq('req-length', password.length >= 8);
-    updateReq('req-upper', /[A-Z]/.test(password));
-    updateReq('req-lower', /[a-z]/.test(password));
-    updateReq('req-number', /[0-9]/.test(password));
-    updateReq('req-special', /[^A-Za-z0-9]/.test(password));
-    updateReq('req-diff', password !== username && password.length > 0);
+    set('req-length',  password.length >= 8,                         'At least 8 characters');
+    set('req-upper',   /[A-Z]/.test(password),                       'At least 1 uppercase letter');
+    set('req-lower',   /[a-z]/.test(password),                       'At least 1 lowercase letter');
+    set('req-number',  /[0-9]/.test(password),                       'At least 1 number');
+    set('req-special', /[^A-Za-z0-9]/.test(password),               'At least 1 special character');
+    set('req-diff',    password !== username && password.length > 0, 'Cannot match username');
 }
 
 function showAuth() {
-    document.getElementById('dashboard-view').classList.remove('active');
-    setTimeout(() => {
-        document.getElementById('dashboard-view').classList.add('hidden');
-        document.getElementById('auth-view').classList.remove('hidden');
-        setTimeout(() => document.getElementById('auth-view').classList.add('active'), 10);
-    }, 300);
+    document.getElementById('dashboard-view').classList.add('hidden');
+    const authView = document.getElementById('auth-view');
+    authView.classList.remove('hidden');
+    authView.style.display = 'flex';
+    authView.classList.add('active');
+    document.getElementById('mobile-nav')?.classList.add('hidden');
 }
 
 function showDashboard() {
-    document.getElementById('auth-view').classList.remove('active');
-    setTimeout(() => {
-        document.getElementById('auth-view').classList.add('hidden');
-        document.getElementById('dashboard-view').classList.remove('hidden');
-        setTimeout(() => document.getElementById('dashboard-view').classList.add('active'), 10);
-    }, 300);
-    
+    const authView = document.getElementById('auth-view');
+    authView.classList.remove('active');
+    authView.style.display = 'none';
+
+    const dash = document.getElementById('dashboard-view');
+    dash.classList.remove('hidden');
+    document.getElementById('mobile-nav')?.classList.remove('hidden');
+
     document.getElementById('user-display').textContent = currentUsername || 'Analyst';
-    
-    // Toggle Admin Panel
+
     if (isMaster) {
-        document.getElementById('admin-panel').classList.remove('hidden');
+        document.getElementById('admin-panel')?.classList.remove('hidden');
         fetchAdminUsers();
     } else {
-        document.getElementById('admin-panel').classList.add('hidden');
+        document.getElementById('admin-panel')?.classList.add('hidden');
     }
-    
-    // Trigger default tab load
+
     switchMainTab('eligibility');
+    calculateAmortization();
 }
 
-function switchMainTab(tabName) {
-    // Update active nav button
+/* ─────────────────────────────────────
+   MAIN TAB NAVIGATION
+───────────────────────────────────── */
+function switchMainTab(tabName, clickedEl) {
+    activeTab = tabName;
+
+    // Header nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    if (typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('active');
-    
-    // Update active tab container
-    document.querySelectorAll('.main-tab').forEach(tab => tab.classList.remove('active', 'hidden'));
-    document.querySelectorAll('.main-tab').forEach(tab => {
-        if(tab.id !== `tab-${tabName}`) tab.classList.add('hidden');
+    if (clickedEl && clickedEl.classList.contains('nav-btn')) {
+        clickedEl.classList.add('active');
+    } else {
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const map = { eligibility: 0, portfolio: 1, amortization: 2 };
+        if (navBtns[map[tabName]]) navBtns[map[tabName]].classList.add('active');
+    }
+
+    // Mobile nav buttons
+    document.querySelectorAll('.m-nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
     });
-    
-    const activeTab = document.getElementById(`tab-${tabName}`);
-    activeTab.classList.remove('hidden');
-    setTimeout(() => activeTab.classList.add('active'), 10);
-    
-    // Trigger Lazy-load content based on tab
-    if(tabName === 'portfolio') {
+
+    // Tab panels
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+        panel.classList.add('hidden');
+    });
+    const active = document.getElementById(`tab-${tabName}`);
+    if (active) {
+        active.classList.remove('hidden');
+        active.classList.add('active');
+    }
+
+    // Immediate resizing for Plotly charts to eliminate overflow
+    if (tabName === 'portfolio') {
         if (!portfolioDataCache) {
             fetchPortfolioData();
         } else {
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 renderPortfolioCharts();
-                try {
-                    Plotly.Plots.resize('chart-credit');
-                    Plotly.Plots.resize('chart-dti');
-                    Plotly.Plots.resize('chart-demo');
-                } catch(e) {}
-            }, 60);
+                setTimeout(() => {
+                    ['chart-credit', 'chart-dti', 'chart-demo'].forEach(id => {
+                        try { Plotly.Plots.resize(id); } catch(e) {}
+                    });
+                }, 80);
+            });
         }
-    } else if(tabName === 'amortization') {
-        calculateAmortization();
+    } else if (tabName === 'amortization') {
+        requestAnimationFrame(() => {
+            calculateAmortization();
+            setTimeout(() => {
+                ['chart-amort-line', 'chart-amort-pie'].forEach(id => {
+                    try { Plotly.Plots.resize(id); } catch(e) {}
+                });
+            }, 80);
+        });
     }
 }
 
+/* ─────────────────────────────────────
+   LOGOUT
+───────────────────────────────────── */
 async function logout() {
-    if(authToken && sessionID) {
+    if (authToken && sessionID) {
         try {
             await fetch(`${API_BASE}/logout`, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                 body: JSON.stringify({ session_id: parseInt(sessionID) })
             });
-        } catch(e) { console.error("Logout ping failed", e); }
+        } catch(e) {}
     }
-    
-    localStorage.removeItem('apex_token');
-    localStorage.removeItem('apex_user');
-    localStorage.removeItem('apex_session');
-    localStorage.removeItem('apex_is_master');
-    authToken = null;
-    currentUsername = null;
-    sessionID = null;
-    isMaster = false;
+    ['apex_token','apex_user','apex_session','apex_is_master'].forEach(k => localStorage.removeItem(k));
+    authToken = null; currentUsername = null; sessionID = null; isMaster = false;
     portfolioDataCache = null;
-    
-    document.getElementById('result-display').innerHTML = `
-        <div class="pulse-icon">⚡️</div>
-        <p>Submit an application to view the algorithmic decision.</p>
-    `;
-    document.getElementById('result-display').className = 'result-placeholder';
+    lastPredictionData = null;
+
+    const rd = document.getElementById('result-display');
+    if (rd) {
+        rd.innerHTML = `<div class="placeholder-icon">⚡</div><p>Submit an application to view the algorithmic decision.</p>`;
+        rd.className = 'result-placeholder';
+    }
+
     showAuth();
 }
 
-/* ==============================
-   API INTEGRATION: AUTH
-============================== */
+/* ─────────────────────────────────────
+   AUTHENTICATION API
+───────────────────────────────────── */
 async function handleAuth(e) {
     e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('auth-error');
+    const username  = document.getElementById('username').value;
+    const password  = document.getElementById('password').value;
+    const errorDiv  = document.getElementById('auth-error');
     const submitBtn = document.getElementById('auth-submit-btn');
-    
+    const btnLabel  = document.getElementById('auth-btn-label');
+
     errorDiv.textContent = '';
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Processing...';
+    const origText = btnLabel.textContent;
+    btnLabel.textContent = 'Processing…';
     submitBtn.disabled = true;
 
     try {
         if (currentAuthMode === 'register') {
-            const email = document.getElementById('email').value;
-            const isValid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) && password !== username;
-            if (!isValid) {
-                throw new Error("Password does not meet all security requirements.");
-            }
-            
+            const email   = document.getElementById('email').value;
+            const isValid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password)
+                         && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) && password !== username;
+            if (!isValid) throw new Error('Password does not meet all security requirements.');
+
             const res = await fetch(`${API_BASE}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password })
             });
             if (!res.ok) throw new Error((await res.json()).detail || 'Registration failed');
-            alert('Credentials created securely! You may now login.');
-            document.querySelectorAll('.tab-btn')[0].click(); 
+            alert('Credentials created! You may now log in.');
+            switchAuthTab('login');
+
         } else {
             const formData = new URLSearchParams();
             formData.append('username', username);
@@ -211,688 +320,633 @@ async function handleAuth(e) {
                 body: formData
             });
             if (!res.ok) throw new Error((await res.json()).detail || 'Authentication failed');
-            
+
             const data = await res.json();
-            
-            authToken = data.access_token;
+            authToken       = data.access_token;
             currentUsername = username;
-            sessionID = data.session_id;
-            isMaster = data.is_master;
-            
-            localStorage.setItem('apex_token', authToken);
-            localStorage.setItem('apex_user', currentUsername);
-            localStorage.setItem('apex_session', sessionID);
+            sessionID       = data.session_id;
+            isMaster        = data.is_master;
+
+            localStorage.setItem('apex_token',     authToken);
+            localStorage.setItem('apex_user',      currentUsername);
+            localStorage.setItem('apex_session',   sessionID);
             localStorage.setItem('apex_is_master', isMaster);
-            
+
             showDashboard();
+            fetchPortfolioData();
         }
     } catch (err) {
         errorDiv.textContent = err.message;
-        errorDiv.style.animation = 'none';
-        errorDiv.offsetHeight;
-        errorDiv.style.animation = 'pulse 0.3s ease-in-out';
     } finally {
-        submitBtn.textContent = originalText;
+        btnLabel.textContent = origText;
         submitBtn.disabled = false;
     }
 }
 
-/* ==============================
-   API INTEGRATION: PREDICTION
-============================== */
+/* ─────────────────────────────────────
+   PREDICTION API & RESULTS RENDERING
+───────────────────────────────────── */
 async function handlePredict(e) {
     e.preventDefault();
     if (!authToken) return;
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalBtnText = submitBtn.textContent;
-    submitBtn.textContent = 'Evaluating Algorithmic Pipeline...';
+
+    const submitBtn   = e.target.querySelector('button[type="submit"]');
+    const origBtnText = submitBtn.innerHTML;
+    submitBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Evaluating Pipeline…`;
     submitBtn.disabled = true;
 
     const resultDiv = document.getElementById('result-display');
-    
-    resultDiv.innerHTML = '<div class="pulse-icon">⚙️</div><div class="conf-text" style="color:var(--text-main)">Querying ML Model...</div>';
+    resultDiv.innerHTML = `<div class="placeholder-icon" style="animation:none;opacity:0.6">⚙️</div><p style="color:var(--text-muted);font-size:0.85rem;">Querying ML model…</p>`;
     resultDiv.className = 'result-placeholder';
-    resultDiv.style.cssText = '';
-    
-    const rawLoanInput = parseFloat(document.getElementById('loan_amount').value) || 0;
-    const literalLoanAmount = rawLoanInput < 1000 ? rawLoanInput * 1000 : rawLoanInput;
-    const scaledLoanForML = rawLoanInput >= 1000 ? rawLoanInput / 1000 : rawLoanInput;
 
-    const termYearsInput = parseFloat(document.getElementById('loan_term_years').value) || 30;
-    const termMonths = termYearsInput > 40 ? Math.round(termYearsInput) : Math.round(termYearsInput * 12);
+    const rawLoan     = parseFloat(document.getElementById('loan_amount').value) || 0;
+    const literalLoan = rawLoan < 1000 ? rawLoan * 1000 : rawLoan;
+    const scaledLoan  = rawLoan >= 1000 ? rawLoan / 1000 : rawLoan;
+    const termYears   = parseFloat(document.getElementById('loan_term_years').value) || 30;
+    const termMonths  = termYears > 40 ? Math.round(termYears) : Math.round(termYears * 12);
 
     const payload = {
-        ApplicantIncome: parseFloat(document.getElementById('app_income').value) || 0,
-        CoapplicantIncome: parseFloat(document.getElementById('co_income').value) || 0,
-        LoanAmount: scaledLoanForML,
+        ApplicantIncome:  parseFloat(document.getElementById('app_income').value) || 0,
+        CoapplicantIncome:parseFloat(document.getElementById('co_income').value)  || 0,
+        LoanAmount:       scaledLoan,
         Loan_Amount_Term: termMonths,
-        CreditHistory: parseFloat(document.getElementById('credit_history').value),
-        Education: document.getElementById('education').value,
-        EmploymentType: document.getElementById('employment').value,
-        MaritalStatus: document.getElementById('marital').value,
-        Dependents: document.getElementById('dependents').value,
-        PropertyArea: document.getElementById('property').value
+        CreditHistory:    parseFloat(document.getElementById('credit_history').value),
+        Education:        document.getElementById('education').value,
+        EmploymentType:   document.getElementById('employment').value,
+        MaritalStatus:    document.getElementById('marital').value,
+        Dependents:       document.getElementById('dependents').value,
+        PropertyArea:     document.getElementById('property').value
     };
 
     try {
         const res = await fetch(`${API_BASE}/predict`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
             body: JSON.stringify(payload)
         });
-
-        if (res.status === 401) { logout(); throw new Error("Security token expired."); }
-        if (!res.ok) throw new Error((await res.json()).detail || 'Prediction pipeline failed');
+        if (res.status === 401) { logout(); throw new Error('Security token expired.'); }
+        if (!res.ok) throw new Error((await res.json()).detail || 'Prediction failed');
 
         const data = await res.json();
-        const isApproved = data.prediction === 1;
-        const status = data.status || (isApproved ? 'APPROVED' : 'REJECTED');
-        const track = data.track || (payload.CreditHistory === 1.0 ? 'Established Credit Track' : 'Income-Based Capacity Track');
-        const tier = data.tier || (isApproved ? 'Tier 1 - Standard Approval' : 'Standard Rejection');
-        const notes = data.actionable_notes || '';
-        const conditions = data.conditions || [];
-        const counterAmt = data.counter_offer_amount;
-        
-        // Auto-fill the amortization simulator with literal loan amount & tenure years
-        document.getElementById('sim_amount').value = counterAmt ? counterAmt : literalLoanAmount;
-        document.getElementById('sim_term_years').value = termYearsInput;
-        
-        // Auto-run the simulation to show breakdown immediately
+        data._literalLoan = literalLoan;
+        data._termYears = termYears;
+        lastPredictionData = data;
+
+        // Auto-fill amortization simulator
+        document.getElementById('sim_amount').value     = data.counter_offer_amount || literalLoan;
+        document.getElementById('sim_term_years').value = termYears;
+        setTenure(Math.round(termYears));
         calculateAmortization();
 
-        // ── Accent colour by decision type ──
-        let accentColor = '#10b981';   // Approved  → emerald
-        if (status === 'Counter-Offer Proposed') accentColor = '#c9922a';  // amber
-        else if (status === 'Conditional Approval') accentColor = '#3b82f6'; // blue
-        else if (!isApproved) accentColor = '#ef4444';                       // red
-
-        // ── Card style: flat inside outer glass-card, only left accent border ──
-        resultDiv.className = 'result-card';
-        resultDiv.style.cssText = `
-            background:transparent;
-            border:none;
-            border-left:4px solid ${accentColor};
-            border-radius:0;
-            text-align:left;
-            padding:0.5rem 0 0.5rem 1.25rem;
-            box-shadow:none;
-            animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        `;
-
-        // ── Score & threshold bar ──
-        const scorePercent = Math.min(data.confidence_percentage, 100);
-        const RISK_THRESHOLD = 75; // fixed underwriting threshold
-
-        // ── Loan comparison boxes (only when counter offer exists) ──
-        let loanComparisonHTML = '';
-        if (counterAmt) {
-            loanComparisonHTML = `
-                <div style="display:flex;align-items:stretch;gap:0.6rem;margin:1.25rem 0;">
-                    <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.1rem;">
-                        <div style="font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.5rem;">Requested</div>
-                        <div style="font-size:1.4rem;font-weight:800;color:#64748b;letter-spacing:-0.02em;">₹${literalLoanAmount.toLocaleString('en-IN')}</div>
-                        <div style="font-size:0.75rem;color:#ef4444;margin-top:0.35rem;font-weight:600;">✗ Exceeds risk limit</div>
-                    </div>
-                    <div style="display:flex;align-items:center;padding:0 0.25rem;color:#94a3b8;font-size:1.3rem;flex-shrink:0;">→</div>
-                    <div style="flex:1;background:#fef9ee;border:1.5px solid ${accentColor};border-radius:10px;padding:1rem 1.1rem;">
-                        <div style="font-size:0.6rem;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.5rem;">Pre-Approved Limit</div>
-                        <div style="font-size:1.4rem;font-weight:800;color:${accentColor};letter-spacing:-0.02em;">₹${counterAmt.toLocaleString('en-IN')}</div>
-                        <div style="font-size:0.75rem;color:#10b981;margin-top:0.35rem;font-weight:600;">✓ Within capacity</div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // ── Underwriting Key Factors (SHAP / Feature Impact Attribution) ──
-        const keyFactors = data.key_factors || [];
-        let keyFactorsHTML = '';
-        if (keyFactors.length > 0) {
-            keyFactorsHTML = `
-                <div style="padding-top:0.85rem;border-top:1px solid #e8ecf2;margin-top:0.85rem;">
-                    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.55rem;">
-                        <span style="font-size:0.95rem;">⚖️</span>
-                        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#475569;">Key Underwriting Decision Factors</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:0.35rem;">
-                        ${keyFactors.map(f => `
-                            <div style="display:flex;align-items:center;justify-content:space-between;background:${f.type === 'positive' ? '#f0fdf4' : '#fef2f2'};border:1px solid ${f.type === 'positive' ? '#bbf7d0' : '#fecaca'};padding:0.4rem 0.65rem;border-radius:6px;font-size:0.78rem;">
-                                <span style="color:${f.type === 'positive' ? '#166534' : '#991b1b'};font-weight:500;">
-                                    ${f.type === 'positive' ? '🟢' : '🔴'} ${f.factor}
-                                </span>
-                                <span style="font-weight:700;color:${f.type === 'positive' ? '#15803d' : '#dc2626'};">
-                                    ${f.impact}
-                                </span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        // ── Conditions list ──
-        let conditionsHTML = '';
-        if (conditions.length > 0) {
-            conditionsHTML = `
-                <div style="padding-top:1rem;border-top:1px solid #e8ecf2;margin-top:1rem;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
-                        <span style="font-size:1rem;">📋</span>
-                        <span style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.13em;color:#475569;">Underwriting Conditions</span>
-                    </div>
-                    <ul style="margin:0;padding:0;list-style:none;">
-                        ${conditions.map(c => `
-                            <li style="display:flex;align-items:flex-start;gap:0.55rem;margin-bottom:0.45rem;font-size:0.855rem;color:#475569;line-height:1.5;">
-                                <span style="color:${accentColor};margin-top:0.25rem;flex-shrink:0;font-size:0.6rem;">■</span>
-                                <span>${c}</span>
-                            </li>`).join('')}
-                    </ul>
-                </div>
-            `;
-        }
-
-        // ── Format status for display (Title Case, not ALL CAPS) ──
-        const displayStatus = status === 'APPROVED' ? 'Approved' : status === 'REJECTED' ? 'Rejected' : status;
-        const displayTier = tier.replace(' - ', ' · ').toUpperCase();
-
-        resultDiv.innerHTML = `
-            <!-- Track Badge -->
-            <div style="display:inline-block;font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;border:1.5px solid #cbd5e1;color:#475569;background:#f8fafc;padding:0.28rem 0.85rem;border-radius:20px;margin-bottom:1rem;">${track}</div>
-
-            <!-- Status -->
-            <div style="font-size:1.85rem;font-weight:800;color:${accentColor};line-height:1.15;margin-bottom:0.35rem;letter-spacing:-0.02em;">${displayStatus}</div>
-
-            <!-- Tier -->
-            <div style="font-size:0.65rem;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.12em;margin-bottom:1.25rem;">${displayTier}</div>
-
-            <!-- Score Bar -->
-            <div style="margin-bottom:1.1rem;">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.4rem;">
-                    <span style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">Financial Capacity Score</span>
-                    <div style="text-align:right;">
-                        <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;">Risk Threshold</div>
-                        <div style="font-size:1.05rem;font-weight:800;color:${accentColor};">${data.confidence_percentage.toFixed(1)}%</div>
-                    </div>
-                </div>
-                <div style="position:relative;height:8px;background:#e2e8f0;border-radius:4px;overflow:visible;">
-                    <div style="height:100%;width:${scorePercent}%;background:${accentColor};border-radius:4px;"></div>
-                    <div style="position:absolute;left:${RISK_THRESHOLD}%;top:-5px;bottom:-5px;width:2px;border-left:2px dashed #ef4444;transform:translateX(-50%);"></div>
-                </div>
-                <div style="font-size:0.76rem;color:#64748b;font-style:italic;margin-top:0.55rem;line-height:1.5;">${notes}</div>
-            </div>
-
-            <!-- Loan Comparison -->
-            ${loanComparisonHTML}
-
-            <!-- Key Underwriting Decision Factors -->
-            ${keyFactorsHTML}
-
-            <!-- Conditions -->
-            ${conditionsHTML}
-        `;
-
-        // Refresh the portfolio charts dynamically
+        renderPredictionResult(data);
         fetchPortfolioData();
 
     } catch (err) {
         resultDiv.className = 'result-placeholder';
-        resultDiv.innerHTML = `<div class="pulse-icon" style="color:var(--danger)">⚠️</div><div class="error-msg" style="font-size:1rem">${err.message}</div>`;
+        resultDiv.innerHTML = `<div class="placeholder-icon" style="color:var(--red);">⚠️</div><div style="color:var(--red);font-size:0.9rem;">${err.message}</div>`;
     } finally {
-        submitBtn.textContent = originalBtnText;
+        submitBtn.innerHTML = origBtnText;
         submitBtn.disabled = false;
     }
 }
 
+function renderPredictionResult(data) {
+    const resultDiv = document.getElementById('result-display');
+    if (!resultDiv) return;
+
+    const isApproved  = data.prediction === 1;
+    const status      = data.status || (isApproved ? 'Approved' : 'Rejected');
+    const track       = data.track  || '';
+    const tier        = data.tier   || '';
+    const notes       = data.actionable_notes || '';
+    const conditions  = data.conditions || [];
+    const counterAmt  = data.counter_offer_amount;
+    const score       = data.confidence_percentage || 0;
+    const literalLoan = data._literalLoan || 150000;
+
+    let accent = 'var(--green)';
+    if (status === 'Rejected')                    accent = 'var(--red)';
+    else if (status === 'Counter-Offer Proposed')  accent = 'var(--amber)';
+    else if (status === 'Conditional Approval')    accent = 'var(--accent-primary)';
+
+    // Counter offer comparison
+    let counterHTML = '';
+    if (counterAmt) {
+        counterHTML = `
+        <div class="result-comparison">
+            <div class="compare-box compare-requested">
+                <div class="compare-label">Requested</div>
+                <div class="compare-amount mono">₹${literalLoan.toLocaleString('en-IN')}</div>
+                <div class="compare-note denied">✗ Exceeds risk limit</div>
+            </div>
+            <div class="compare-arrow">→</div>
+            <div class="compare-box compare-offered" style="border-color:${accent};">
+                <div class="compare-label" style="color:${accent};">Pre-Approved</div>
+                <div class="compare-amount mono" style="color:${accent};">₹${counterAmt.toLocaleString('en-IN')}</div>
+                <div class="compare-note approved">✓ Within capacity</div>
+            </div>
+        </div>`;
+    }
+
+    // Key factors
+    const factors = data.key_factors || [];
+    let factorsHTML = '';
+    if (factors.length > 0) {
+        factorsHTML = `
+        <div class="result-section-divider"></div>
+        <div class="result-factors-title">
+            <span>⚖️</span>
+            <span class="section-chip">Key Underwriting Decision Factors</span>
+        </div>
+        <div class="result-factors-list">
+            ${factors.map(f => `
+            <div class="factor-row ${f.type}">
+                <span class="factor-label">${f.type === 'positive' ? '🟢' : '🔴'} ${f.factor}</span>
+                <span class="factor-impact" style="color:${f.type === 'positive' ? 'var(--green)' : 'var(--red)'};">${f.impact}</span>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    // Conditions
+    let conditionsHTML = '';
+    if (conditions.length > 0) {
+        conditionsHTML = `
+        <div class="result-section-divider"></div>
+        <div class="result-factors-title">
+            <span>📋</span>
+            <span class="section-chip">Underwriting Conditions</span>
+        </div>
+        <ul class="conditions-list">
+            ${conditions.map(c => `<li><span style="color:${accent};">■</span> ${c}</li>`).join('')}
+        </ul>`;
+    }
+
+    const displayTier = tier.replace(' - ', ' · ').toUpperCase();
+
+    resultDiv.className = 'result-output';
+    resultDiv.style.cssText = `border-left: 3.5px solid ${accent}; animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);`;
+    resultDiv.innerHTML = `
+        <div class="result-track-badge">${track}</div>
+        <div class="result-status" style="color:${accent};">${status}</div>
+        <div class="result-tier" style="color:${accent};">${displayTier}</div>
+
+        <div class="result-score-block">
+            <div class="score-header">
+                <span class="score-title">Financial Capacity Score</span>
+                <span class="score-value mono" style="color:${accent};">${score.toFixed(1)}%</span>
+            </div>
+            <div class="score-bar-wrap">
+                <div class="score-bar-fill" style="width:${Math.min(score,100)}%;background:${accent};"></div>
+                <div class="score-threshold-line"></div>
+            </div>
+            <div class="score-notes">${notes}</div>
+        </div>
+
+        ${counterHTML}
+        ${factorsHTML}
+        ${conditionsHTML}
+    `;
+}
+
+/* ─────────────────────────────────────
+   EXPORT API
+───────────────────────────────────── */
 async function exportData(btnId, endpoint) {
     if (!authToken) return;
-    
     const btn = document.getElementById(btnId);
-    const originalText = btn.innerText;
-    btn.innerText = "Exporting...";
-    
+    const orig = btn.innerText;
+    btn.innerText = 'Exporting…';
     try {
-        const response = await fetch(`${API_BASE}${endpoint}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (response.status === 401) { logout(); throw new Error("Unauthorized"); }
-        if (response.status === 404) { throw new Error("No data found to export."); }
-        if (!response.ok) { throw new Error("Export failed."); }
-        
-        const text = await response.text();
-        
+        const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+        if (res.status === 404) throw new Error('No data found to export.');
+        if (!res.ok) throw new Error('Export failed.');
+        const text = await res.text();
         let filename = endpoint.split('/').pop() + '.csv';
-        const disposition = response.headers.get('Content-Disposition');
-        if (disposition && disposition.indexOf('filename=') !== -1) {
-            filename = disposition.split('filename=')[1];
-        }
-        
-        // 1. Display raw data in modal for WebViews
+        const disp = res.headers.get('Content-Disposition');
+        if (disp && disp.includes('filename=')) filename = disp.split('filename=')[1];
+
         document.getElementById('csv-content').value = text;
         document.getElementById('csv-modal').classList.remove('hidden');
-        
-        // 2. Also trigger standard download for standard browsers
+
         const blob = new Blob([text], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
+        const url  = window.URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.style.display = 'none'; a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
         window.URL.revokeObjectURL(url);
-        
     } catch (err) {
-        alert("Error exporting: " + err.message);
+        alert('Export error: ' + err.message);
     } finally {
-        btn.innerText = originalText;
+        btn.innerText = orig;
     }
 }
 
 function copyCSVToClipboard() {
     const text = document.getElementById('csv-content').value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Data successfully copied to your clipboard!");
-        }).catch(() => {
-            alert("Failed to copy automatically. Please select the text and copy it manually.");
-        });
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => alert('Copied to clipboard!'))
+            .catch(() => alert('Failed to copy. Please select and copy manually.'));
     } else {
-        alert("Clipboard API not supported. Please select the text and copy it manually.");
+        alert('Clipboard API not supported. Please select and copy manually.');
     }
 }
 
-/* ==============================
-   PORTFOLIO DASHBOARD (Plotly)
-============================== */
+/* ─────────────────────────────────────
+   PORTFOLIO DATA & CHARTS
+───────────────────────────────────── */
 async function fetchPortfolioData() {
     if (!authToken) return;
     try {
-        const res = await fetch(`${API_BASE}/portfolio-data`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        if(res.status === 401) { logout(); return; }
+        const res = await fetch(`${API_BASE}/portfolio-data`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        if (res.status === 401) { logout(); return; }
         portfolioDataCache = await res.json();
-        renderPortfolioCharts();
-    } catch(e) {
-        console.error("Failed to load portfolio data", e);
-    }
+        updateKPIStrip(portfolioDataCache);
+        if (activeTab === 'portfolio') renderPortfolioCharts();
+    } catch(e) { console.error('Portfolio load failed', e); }
+}
+
+function updateKPIStrip(data) {
+    if (!data || !Array.isArray(data) || data.length === 0) return;
+    const total    = data.length;
+    const approved = data.filter(d => Number(d.Loan_Status) === 1).length;
+    const rate     = ((approved / total) * 100).toFixed(1);
+    const avgInc   = data.reduce((s, d) => s + (d.ApplicantIncome || 0), 0) / total;
+    const avgLoan  = data.reduce((s, d) => s + (d.LoanAmount || 0), 0) / total;
+
+    setText('kpi-records',  total.toLocaleString());
+    setText('kpi-approval', rate + '%');
+    setText('kpi-income',   '₹' + avgInc.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+    setText('kpi-loan',     '₹' + avgLoan.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+}
+
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+
+function getPlotlyTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    return {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor:  'rgba(0,0,0,0)',
+        font: {
+            family: 'Outfit, sans-serif',
+            color: isDark ? '#94a3b8' : '#475569',
+            size: 11
+        },
+        gridcolor: isDark ? 'rgba(99, 133, 194, 0.12)' : 'rgba(0,0,0,0.06)',
+        hoverlabel: {
+            bgcolor: isDark ? '#111c35' : '#ffffff',
+            bordercolor: isDark ? '#233152' : '#cbd5e1',
+            font: { family: 'Outfit, sans-serif', color: isDark ? '#f1f5f9' : '#0f172a', size: 12 }
+        }
+    };
 }
 
 function renderPortfolioCharts() {
     const data = portfolioDataCache;
-    
-    if (!data || !Array.isArray(data) || data.length === 0) {
-        console.warn("Portfolio data is empty or invalid. Charts will not render.");
-        return;
-    }
-    
-    // KPI Math
-    const totalRecords = data.length;
-    const approvalRate = (data.filter(d => d.Loan_Status === 1).length / totalRecords) * 100;
-    const avgIncome = data.reduce((sum, d) => sum + d.ApplicantIncome, 0) / totalRecords;
-    const avgLoan = data.reduce((sum, d) => sum + d.LoanAmount, 0) / totalRecords;
-    
-    document.getElementById('kpi-records').innerText = totalRecords.toLocaleString();
-    document.getElementById('kpi-approval').innerText = approvalRate.toFixed(1) + '%';
-    document.getElementById('kpi-income').innerText = '₹' + avgIncome.toLocaleString(undefined, {maximumFractionDigits:0});
-    document.getElementById('kpi-loan').innerText = '₹' + avgLoan.toLocaleString(undefined, {maximumFractionDigits:0});
-    
-    // Common Plotly Layout Rules
+    if (!data || !Array.isArray(data) || data.length === 0) return;
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const th = getPlotlyTheme();
     const layoutBase = {
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#1e293b', size: 13 },
-        margin: { t: 45, b: 60, l: 80, r: 20 },
-        legend: { orientation: 'h', y: 1.18, x: 0, font: { size: 12 } },
-        bargap: 0.25,
-        hoverlabel: {
-            bgcolor: '#ffffff',
-            bordercolor: '#e2e8f0',
-            font: { family: 'Outfit', color: '#1e293b', size: 13 }
+        paper_bgcolor: th.paper_bgcolor,
+        plot_bgcolor:  th.plot_bgcolor,
+        font:          th.font,
+        autosize:      true,
+        margin:        { t: 30, b: 45, l: 50, r: 15 },
+        legend:        { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } },
+        bargap:        0.28,
+        hoverlabel:    th.hoverlabel,
+        xaxis:         { showgrid: false, color: th.font.color, automargin: true },
+        yaxis:         { gridcolor: th.gridcolor, color: th.font.color, automargin: true }
+    };
+
+    const plotlyConfig = {
+        responsive: true,
+        displayModeBar: false // Removes modebar to eliminate horizontal overflow
+    };
+
+    // Executive Financial Palettes (Distinct, Rich & Professional)
+    const pal = {
+        // Chart 1: Institutional Jewel Emerald vs Velveteen Bordeaux Wine
+        creditApp: isDark ? '#14b8a6' : '#0d9488',
+        creditAppBrd: isDark ? '#0f766e' : '#115e59',
+        creditRej: isDark ? '#fb7185' : '#be123c',
+        creditRejBrd: isDark ? '#f43f5e' : '#9f1239',
+
+        // Chart 2: Royal Executive Cobalt vs Burnished Amber Bronze
+        dtiApp: isDark ? '#3b82f6' : '#1d4ed8',
+        dtiAppBrd: isDark ? '#2563eb' : '#1e40af',
+        dtiRej: isDark ? '#fbbf24' : '#d97706',
+        dtiRejBrd: isDark ? '#f59e0b' : '#b45309',
+
+        // Chart 3: Regal Midnight Iris vs Venetian Terracotta Copper
+        areaApp: isDark ? '#818cf8' : '#4338ca',
+        areaAppBrd: isDark ? '#6366f1' : '#3730a3',
+        areaRej: isDark ? '#fb923c' : '#c2410c',
+        areaRejBrd: isDark ? '#f97316' : '#9a3412'
+    };
+
+    // CHART 1: Credit Track Outcomes
+    const cats = ['Established (1.0)', 'No / Poor History (0.0)'];
+    let appCounts = [0, 0], rejCounts = [0, 0];
+    data.forEach(row => {
+        const isEst = Number(row.CreditHistory) === 1;
+        const isApp = Number(row.Loan_Status)   === 1;
+        const idx   = isEst ? 0 : 1;
+        if (isApp) appCounts[idx]++; else rejCounts[idx]++;
+    });
+    Plotly.newPlot('chart-credit', [
+        {
+            name: 'Approved / Conditional',
+            x: cats,
+            y: appCounts,
+            type: 'bar',
+            width: 0.32,
+            marker: { color: pal.creditApp, line: { color: pal.creditAppBrd, width: 1.2 } },
+            hovertemplate: '%{y} Approved<extra></extra>'
+        },
+        {
+            name: 'Rejected',
+            x: cats,
+            y: rejCounts,
+            type: 'bar',
+            width: 0.32,
+            marker: { color: pal.creditRej, line: { color: pal.creditRejBrd, width: 1.2 } },
+            hovertemplate: '%{y} Rejected<extra></extra>'
         }
-    };
-
-    // -------------------------------------------------------------
-    // CHART 1: Credit History Grouped 4-Bar Volume Chart
-    // -------------------------------------------------------------
-    const categories = ['Established (1.0)', 'No / Poor History (0.0)'];
-    let approvedCounts = [0, 0];
-    let rejectedCounts = [0, 0];
-
-    data.forEach(row => {
-        const isEstablished = Number(row.CreditHistory) === 1;
-        const isApproved = Number(row.Loan_Status) === 1;
-        
-        if (isEstablished) {
-            if (isApproved) approvedCounts[0]++;
-            else rejectedCounts[0]++;
-        } else {
-            if (isApproved) approvedCounts[1]++;
-            else rejectedCounts[1]++;
-        }
-    });
-
-    const maxCredit = Math.max(...approvedCounts, ...rejectedCounts);
-
-    const traceApproved = {
-        name: 'Approved / Conditional',
-        x: categories,
-        y: approvedCounts,
-        type: 'bar',
-        width: 0.3,
-        marker: { color: '#10b981' },
-        hovertemplate: '%{y} Approved<extra></extra>'
-    };
-
-    const traceRejected = {
-        name: 'Rejected',
-        x: categories,
-        y: rejectedCounts,
-        type: 'bar',
-        width: 0.3,
-        marker: { color: '#ef4444' },
-        hovertemplate: '%{y} Rejected<extra></extra>'
-    };
-
-    Plotly.newPlot('chart-credit', [traceApproved, traceRejected], {
-        ...layoutBase,
-        barmode: 'group',
-        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxCredit * 1.25], showgrid: true },
-        xaxis: { title: 'Credit History Status', showgrid: false }
-    }, { responsive: true });
-
-    // -------------------------------------------------------------
-    // CHART 2: Debt-to-Income (DTI) Risk Tier Distribution
-    // -------------------------------------------------------------
-    // CHART 2: Debt-to-Income (DTI) Risk Tier Breakdown
-    // -------------------------------------------------------------
-    const dtiTiers = ['Low Risk  ≤20%', 'Moderate  20–35%', 'High Risk  >35%'];
-    let dtiApproved = [0, 0, 0];
-    let dtiRejected = [0, 0, 0];
-
-    data.forEach(row => {
-        const rawLoan = row.LoanAmount || 0;
-        // CSV stores LoanAmount in thousands; values <1000 are already in thousands
-        const loanInThousands = rawLoan < 1000 ? rawLoan : rawLoan / 1000;
-        const annualIncome = ((row.ApplicantIncome || 0) + (row.CoapplicantIncome || 0)) || 1;
-        
-        // Monthly debt estimate (EMI proxy) / Monthly Income
-        const estimatedMonthlyEmi = (loanInThousands * 1000) / 240; // assume 20-yr term for ratio
-        const monthlyIncome = annualIncome / 12;
-        const approxDti = monthlyIncome > 0 ? (estimatedMonthlyEmi / monthlyIncome) * 100 : 0;
-        
-        const isApproved = Number(row.Loan_Status) === 1;
-        let idx = 0;
-        if (approxDti <= 20) idx = 0;
-        else if (approxDti <= 35) idx = 1;
-        else idx = 2;
-
-        if (isApproved) dtiApproved[idx]++;
-        else dtiRejected[idx]++;
-    });
-
-    const maxDti = Math.max(...dtiApproved, ...dtiRejected);
-
-    const traceDtiApp = {
-        name: 'Approved / Conditional',
-        x: dtiTiers,
-        y: dtiApproved,
-        type: 'bar',
-        width: 0.2,
-        marker: { color: '#3b82f6' },
-        hovertemplate: '%{y} Approved<extra></extra>'
-    };
-
-    const traceDtiRej = {
-        name: 'Rejected',
-        x: dtiTiers,
-        y: dtiRejected,
-        type: 'bar',
-        width: 0.2,
-        marker: { color: '#f97316' },
-        hovertemplate: '%{y} Rejected<extra></extra>'
-    };
-
-    Plotly.newPlot('chart-dti', [traceDtiApp, traceDtiRej], {
-        ...layoutBase,
-        barmode: 'group',
-        autosize: true,
-        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxDti * 1.25], showgrid: true },
-        xaxis: { title: 'DTI Risk Level', showgrid: false, automargin: true }
-    }, { responsive: true });
-
-    // -------------------------------------------------------------
-    // CHART 3: Property Area Collateral Distribution
-    // -------------------------------------------------------------
-    const areas = ['Urban', 'Semiurban', 'Rural'];
-    let areaApproved = [0, 0, 0];
-    let areaRejected = [0, 0, 0];
-
-    data.forEach(row => {
-        // Normalise PropertyArea — CSV has strings; DB may also store strings from dropdown
-        let rawArea = String(row.PropertyArea || '').trim();
-        // Handle legacy numeric encoding just in case
-        if (rawArea === '0') rawArea = 'Rural';
-        else if (rawArea === '1') rawArea = 'Semiurban';
-        else if (rawArea === '2') rawArea = 'Urban';
-
-        const isApproved = Number(row.Loan_Status) === 1;
-        let idx = 2; // default Rural
-        if (rawArea === 'Urban') idx = 0;
-        else if (rawArea === 'Semiurban' || rawArea === 'Semi-Urban') idx = 1;
-
-        if (isApproved) areaApproved[idx]++;
-        else areaRejected[idx]++;
-    });
-
-    const maxArea = Math.max(...areaApproved, ...areaRejected);
-
-    const traceAreaApp = {
-        name: 'Approved / Conditional',
-        x: areas,
-        y: areaApproved,
-        type: 'bar',
-        width: 0.3,
-        marker: { color: '#8b5cf6' },
-        hovertemplate: '%{y} Approved<extra></extra>'
-    };
-
-    const traceAreaRej = {
-        name: 'Rejected',
-        x: areas,
-        y: areaRejected,
-        type: 'bar',
-        width: 0.3,
-        marker: { color: '#ec4899' },
-        hovertemplate: '%{y} Rejected<extra></extra>'
-    };
-
-    Plotly.newPlot('chart-demo', [traceAreaApp, traceAreaRej], {
-        ...layoutBase,
-        barmode: 'group',
-        autosize: true,
-        yaxis: { gridcolor: 'rgba(0,0,0,0.06)', title: 'Number of Applications', range: [0, maxArea * 1.25], showgrid: true },
-        xaxis: { title: 'Property Area', showgrid: false }
-    }, { responsive: true });
-
-    setTimeout(() => {
-        try {
-            Plotly.Plots.resize('chart-credit');
-            Plotly.Plots.resize('chart-dti');
-            Plotly.Plots.resize('chart-demo');
-        } catch(e) {}
-    }, 300);
-
-    // Re-resize on any window resize so charts never clip
-    window._portfolioResizeHandler && window.removeEventListener('resize', window._portfolioResizeHandler);
-    window._portfolioResizeHandler = () => {
-        try {
-            Plotly.Plots.resize('chart-credit');
-            Plotly.Plots.resize('chart-dti');
-            Plotly.Plots.resize('chart-demo');
-        } catch(e) {}
-    };
-    window.addEventListener('resize', window._portfolioResizeHandler);
-}
-
-/* ==============================
-   AMORTIZATION PLANNER
-================================ */
-function calculateAmortization() {
-    const principal = parseFloat(document.getElementById('sim_amount').value) || 0;
-    const termInput = parseFloat(document.getElementById('sim_term_years')?.value) || 30;
-    const termMonths = termInput > 40 ? Math.round(termInput) : Math.round(termInput * 12);
-    const annualRate = parseFloat(document.getElementById('sim_rate').value) || 0;
-
-    // Update slider track fill to match current value
-    const sliderEl = document.getElementById('sim_rate');
-    if (sliderEl) {
-        const min = parseFloat(sliderEl.min) || 1;
-        const max = parseFloat(sliderEl.max) || 18;
-        const pct = ((annualRate - min) / (max - min)) * 100;
-        sliderEl.style.background = `linear-gradient(to right, var(--primary) 0%, var(--primary) ${pct}%, #cbd5e1 ${pct}%, #cbd5e1 100%)`;
-    }
-    
-    const monthlyRate = (annualRate / 100) / 12;
-
-    
-    let monthlyPmt = 0;
-    if (principal <= 0) {
-        monthlyPmt = 0;
-    } else if (monthlyRate > 0) {
-        monthlyPmt = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
-    } else {
-        monthlyPmt = principal / termMonths;
-    }
-    
-    const totalPayout = monthlyPmt * termMonths;
-    const totalInterest = totalPayout - principal;
-    
-    document.getElementById('out_monthly').innerText = '₹' + monthlyPmt.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    document.getElementById('out_principal').innerText = '₹' + principal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    document.getElementById('out_interest').innerText = '₹' + totalInterest.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    
-    // Generate Schedule arrays for plotting
-    let balances = [];
-    let cumInterests = [];
-    let months = [];
-    
-    let remaining = principal;
-    let cumInt = 0;
-    
-    let tbodyHtml = '';
-    window.amortizationScheduleData = [['Month', 'Principal Paid', 'Interest Paid', 'Remaining Balance']];
-    
-    for(let m = 1; m <= termMonths; m++) {
-        let intPmt = remaining * monthlyRate;
-        let prinPmt = monthlyPmt - intPmt;
-        remaining -= prinPmt;
-        cumInt += intPmt;
-        
-        months.push(m);
-        let currentBalance = Math.max(0, remaining);
-        balances.push(currentBalance);
-        cumInterests.push(cumInt);
-        
-        tbodyHtml += `
-            <tr style="border-bottom: 1px solid rgba(0,0,0,0.1);">
-                <td style="padding: 0.5rem; text-align: left;">${m}</td>
-                <td style="padding: 0.5rem;">₹${prinPmt.toFixed(2)}</td>
-                <td style="padding: 0.5rem;">₹${intPmt.toFixed(2)}</td>
-                <td style="padding: 0.5rem;">₹${currentBalance.toFixed(2)}</td>
-            </tr>
-        `;
-        window.amortizationScheduleData.push([m, prinPmt.toFixed(2), intPmt.toFixed(2), currentBalance.toFixed(2)]);
-    }
-    
-    document.getElementById('amortization-table-body').innerHTML = tbodyHtml;
-    
-    const isMobile = window.innerWidth <= 600;
-    const layoutBase = {
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 10 : 12 },
-        margin: isMobile ? { t: 30, b: 25, l: 30, r: 8 } : { t: 35, b: 30, l: 45, r: 15 }
-    };
-    
-    // Line Chart
-    Plotly.newPlot('chart-amort-line', [
-        { x: months, y: balances, name: 'Remaining Principal', fill: 'tozeroy', mode: 'lines', line: {color: '#6366f1', width: 2} },
-        { x: months, y: cumInterests, name: 'Cumulative Interest', mode: 'lines', line: {color: '#ef4444', width: 2} }
     ], {
         ...layoutBase,
-        xaxis: { 
-            showgrid: false, 
-            automargin: true, 
-            nticks: isMobile ? 5 : 8,
-            tickfont: { size: isMobile ? 9 : 11 } 
+        barmode: 'group',
+        yaxis: { ...layoutBase.yaxis, title: 'Applications', showgrid: true },
+        xaxis: { ...layoutBase.xaxis, title: 'Credit History Status' }
+    }, plotlyConfig);
+
+    // CHART 2: DTI Risk Tiers
+    const dtiLabels = ['Low Risk ≤20%', 'Moderate 20–35%', 'High Risk >35%'];
+    let dtiApp = [0,0,0], dtiRej = [0,0,0];
+    data.forEach(row => {
+        const rawLoan = row.LoanAmount || 0;
+        const loanK   = rawLoan < 1000 ? rawLoan : rawLoan / 1000;
+        const income  = ((row.ApplicantIncome || 0) + (row.CoapplicantIncome || 0)) || 1;
+        const emi     = (loanK * 1000) / 240;
+        const dti     = (emi / (income / 12)) * 100;
+        const isApp   = Number(row.Loan_Status) === 1;
+        const idx     = dti <= 20 ? 0 : dti <= 35 ? 1 : 2;
+        if (isApp) dtiApp[idx]++; else dtiRej[idx]++;
+    });
+    Plotly.newPlot('chart-dti', [
+        {
+            name: 'Approved / Conditional',
+            x: dtiLabels,
+            y: dtiApp,
+            type: 'bar',
+            width: 0.28,
+            marker: { color: pal.dtiApp, line: { color: pal.dtiAppBrd, width: 1.2 } },
+            hovertemplate: '%{y} Approved<extra></extra>'
         },
-        yaxis: { 
-            gridcolor: 'rgba(0,0,0,0.1)', 
-            automargin: true, 
-            tickfont: { size: isMobile ? 9 : 11 } 
+        {
+            name: 'Rejected',
+            x: dtiLabels,
+            y: dtiRej,
+            type: 'bar',
+            width: 0.28,
+            marker: { color: pal.dtiRej, line: { color: pal.dtiRejBrd, width: 1.2 } },
+            hovertemplate: '%{y} Rejected<extra></extra>'
+        }
+    ], {
+        ...layoutBase,
+        barmode: 'group',
+        yaxis: { ...layoutBase.yaxis, title: 'Applications', showgrid: true },
+        xaxis: { ...layoutBase.xaxis, title: 'DTI Risk Level' }
+    }, plotlyConfig);
+
+    // CHART 3: Property Area
+    const areas = ['Urban', 'Semiurban', 'Rural'];
+    let aApp = [0,0,0], aRej = [0,0,0];
+    data.forEach(row => {
+        let area = String(row.PropertyArea || '').trim();
+        if (area === '0') area = 'Rural';
+        else if (area === '1') area = 'Semiurban';
+        else if (area === '2') area = 'Urban';
+        const isApp = Number(row.Loan_Status) === 1;
+        const idx   = area === 'Urban' ? 0 : (area === 'Semiurban' || area === 'Semi-Urban') ? 1 : 2;
+        if (isApp) aApp[idx]++; else aRej[idx]++;
+    });
+    Plotly.newPlot('chart-demo', [
+        {
+            name: 'Approved / Conditional',
+            x: areas,
+            y: aApp,
+            type: 'bar',
+            width: 0.35,
+            marker: { color: pal.areaApp, line: { color: pal.areaAppBrd, width: 1.2 } },
+            hovertemplate: '%{y} Approved<extra></extra>'
         },
-        legend: { orientation: 'h', y: 1.25, x: 0, font: { size: isMobile ? 9 : 11 } }
-    }, {responsive: true});
-    
-    // Pie Chart
-    Plotly.newPlot('chart-amort-pie', [{
-        labels: ['Principal', 'Total Interest'],
-        values: [principal, totalInterest],
-        type: 'pie',
-        hole: 0.45,
-        domain: { x: [0.1, 0.9], y: [0.15, 0.95] },
-        marker: { colors: ['#6366f1', '#ef4444'] },
-        textinfo: 'percent',
-        textposition: 'inside',
-        insidetextfont: { family: 'Outfit', size: isMobile ? 10 : 11, color: '#ffffff' },
-        hovertemplate: '<b>%{label}</b><br>₹%{value:,.2f} (%{percent})<extra></extra>'
-    }], {
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { family: 'Outfit', color: '#0f172a', size: isMobile ? 10 : 12 },
-        margin: { t: 5, b: 30, l: 5, r: 5 },
-        legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: isMobile ? 9 : 11 } }
-    }, {responsive: true});
+        {
+            name: 'Rejected',
+            x: areas,
+            y: aRej,
+            type: 'bar',
+            width: 0.35,
+            marker: { color: pal.areaRej, line: { color: pal.areaRejBrd, width: 1.2 } },
+            hovertemplate: '%{y} Rejected<extra></extra>'
+        }
+    ], {
+        ...layoutBase,
+        barmode: 'group',
+        yaxis: { ...layoutBase.yaxis, title: 'Applications', showgrid: true },
+        xaxis: { ...layoutBase.xaxis, title: 'Property Area' }
+    }, plotlyConfig);
 
     setTimeout(() => {
-        try {
-            Plotly.Plots.resize('chart-amort-line');
-            Plotly.Plots.resize('chart-amort-pie');
-        } catch(e) {}
+        ['chart-credit','chart-dti','chart-demo'].forEach(id => {
+            try { Plotly.Plots.resize(id); } catch(e) {}
+        });
+    }, 150);
+}
+
+/* ─────────────────────────────────────
+   AMORTIZATION SIMULATOR & INTERACTIVE HELPERS
+───────────────────────────────────── */
+function setTenure(years) {
+    const input = document.getElementById('sim_term_years');
+    if (input) {
+        input.value = years;
+        document.querySelectorAll('.tenure-pill').forEach(pill => {
+            pill.classList.toggle('active', parseInt(pill.dataset.years) === years);
+        });
+        calculateAmortization();
+    }
+}
+
+function adjustPrincipal(delta) {
+    const input = document.getElementById('sim_amount');
+    if (input) {
+        const current = parseFloat(input.value) || 0;
+        input.value = Math.max(10000, current + delta);
+        calculateAmortization();
+    }
+}
+
+function calculateAmortization() {
+    const principal  = parseFloat(document.getElementById('sim_amount')?.value)     || 0;
+    const termInput  = parseFloat(document.getElementById('sim_term_years')?.value) || 30;
+    const termMonths = termInput > 40 ? Math.round(termInput) : Math.round(termInput * 12);
+    const annualRate = parseFloat(document.getElementById('sim_rate')?.value)        || 0;
+
+    // Sync slider track fill
+    const slider = document.getElementById('sim_rate');
+    if (slider) {
+        const pct = Math.max(0, Math.min(100, ((annualRate - 1) / (18 - 1)) * 100));
+        slider.style.background = `linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) ${pct}%, var(--border-medium) ${pct}%, var(--border-medium) 100%)`;
+    }
+
+    const monthlyRate = (annualRate / 100) / 12;
+    let monthlyPmt = 0;
+    if (principal <= 0)     monthlyPmt = 0;
+    else if (monthlyRate > 0) monthlyPmt = principal * (monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
+    else                    monthlyPmt = principal / termMonths;
+
+    const totalPay = monthlyPmt * termMonths;
+    const totalInt = Math.max(0, totalPay - principal);
+
+    setText('out_monthly',   '₹' + monthlyPmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    setText('out_principal', '₹' + principal.toLocaleString(undefined,  { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    setText('out_interest',  '₹' + totalInt.toLocaleString(undefined,   { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    // Update distribution ratio bar & Donut breakdown telemetry
+    if (totalPay > 0) {
+        const pPct = ((principal / totalPay) * 100).toFixed(1);
+        const iPct = ((totalInt / totalPay) * 100).toFixed(1);
+        setText('payoff-ratio-text', `${pPct}% Principal / ${iPct}% Interest`);
+        const pBar = document.getElementById('ratio-bar-principal');
+        const iBar = document.getElementById('ratio-bar-interest');
+        if (pBar) pBar.style.width = pPct + '%';
+        if (iBar) iBar.style.width = iPct + '%';
+
+        // Update Tab 3 Donut Breakdown Table
+        setText('donut-pct-principal', pPct + '%');
+        setText('donut-pct-interest',  iPct + '%');
+        setText('donut-amt-principal', '₹' + principal.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+        setText('donut-amt-interest',  '₹' + totalInt.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+        setText('donut-amt-total',     '₹' + totalPay.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+    }
+
+    // Build schedule
+    let balances = [], cumInterests = [], months = [], tbodyHtml = '';
+    window.amortizationScheduleData = [['Month','Principal Paid','Interest Paid','Remaining Balance']];
+
+    let remaining = principal, cumInt = 0;
+    for (let m = 1; m <= termMonths; m++) {
+        const intPmt  = remaining * monthlyRate;
+        const prinPmt = monthlyPmt - intPmt;
+        remaining    -= prinPmt;
+        cumInt       += intPmt;
+        const bal     = Math.max(0, remaining);
+        months.push(m); balances.push(bal); cumInterests.push(cumInt);
+        window.amortizationScheduleData.push([m, prinPmt.toFixed(2), intPmt.toFixed(2), bal.toFixed(2)]);
+        tbodyHtml += `<tr>
+            <td>${m}</td>
+            <td>₹${prinPmt.toFixed(2)}</td>
+            <td>₹${intPmt.toFixed(2)}</td>
+            <td>₹${bal.toFixed(2)}</td>
+        </tr>`;
+    }
+
+    const tbody = document.getElementById('amortization-table-body');
+    if (tbody) tbody.innerHTML = tbodyHtml;
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const th = getPlotlyTheme();
+    const plotlyConfig = { responsive: true, displayModeBar: false };
+
+    // Line Chart (Expanded, high-density curve)
+    if (document.getElementById('chart-amort-line')) {
+        Plotly.newPlot('chart-amort-line', [
+            {
+                x: months,
+                y: balances,
+                name: 'Remaining Balance',
+                fill: 'tozeroy',
+                fillcolor: isDark ? 'rgba(37, 99, 235, 0.16)' : 'rgba(29, 78, 216, 0.08)',
+                mode: 'lines',
+                line: { color: isDark ? '#3b82f6' : '#2563eb', width: 2.5 },
+                hovertemplate: 'Month %{x}<br>Balance: ₹%{y:,.0f}<extra></extra>'
+            },
+            {
+                x: months,
+                y: cumInterests,
+                name: 'Cumulative Interest',
+                mode: 'lines',
+                line: { color: isDark ? '#fb7185' : '#e11d48', width: 2.2 },
+                hovertemplate: 'Month %{x}<br>Interest: ₹%{y:,.0f}<extra></extra>'
+            }
+        ], {
+            paper_bgcolor: th.paper_bgcolor,
+            plot_bgcolor:  th.plot_bgcolor,
+            font:          th.font,
+            autosize:      true,
+            margin:        { t: 30, b: 35, l: 55, r: 15 },
+            xaxis:         { showgrid: false, color: th.font.color, automargin: true, nticks: 8, title: 'Tenure (Months)' },
+            yaxis:         { gridcolor: th.gridcolor, color: th.font.color, automargin: true, title: 'Amount (₹)' },
+            legend:        { orientation: 'h', y: 1.15, x: 0, font: { size: 11 } }
+        }, plotlyConfig);
+    }
+
+    // Donut Chart (Compact, clean ratio display)
+    if (document.getElementById('chart-amort-pie')) {
+        Plotly.newPlot('chart-amort-pie', [{
+            labels:   ['Principal', 'Total Interest'],
+            values:   [principal, totalInt],
+            type:     'pie',
+            hole:     0.60,
+            domain:   { x: [0, 1], y: [0, 1] },
+            marker:   {
+                colors: [isDark ? '#3b82f6' : '#2563eb', isDark ? '#fb7185' : '#e11d48'],
+                line: { color: isDark ? '#111c35' : '#ffffff', width: 2 }
+            },
+            textinfo: 'percent',
+            textposition: 'inside',
+            insidetextfont: { family: 'Outfit, sans-serif', size: 12, color: '#ffffff', weight: 600 },
+            hovertemplate: '<b>%{label}</b><br>₹%{value:,.2f} (%{percent})<extra></extra>',
+            showlegend: false
+        }], {
+            paper_bgcolor: th.paper_bgcolor,
+            plot_bgcolor:  th.plot_bgcolor,
+            font:          th.font,
+            autosize:      true,
+            margin:        { t: 10, b: 10, l: 10, r: 10 }
+        }, plotlyConfig);
+    }
+
+    setTimeout(() => {
+        try { Plotly.Plots.resize('chart-amort-line'); } catch(e) {}
+        try { Plotly.Plots.resize('chart-amort-pie');  } catch(e) {}
     }, 100);
 }
 
 function downloadAmortizationCSV() {
-    if(!window.amortizationScheduleData || window.amortizationScheduleData.length === 0) return;
-    let csvContent = "data:text/csv;charset=utf-8," 
-        + window.amortizationScheduleData.map(e => e.join(",")).join("\n");
-    let encodedUri = encodeURI(csvContent);
-    let link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "amortization_schedule.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (!window.amortizationScheduleData?.length) return;
+    const csv  = 'data:text/csv;charset=utf-8,' + window.amortizationScheduleData.map(r => r.join(',')).join('\n');
+    const link = document.createElement('a');
+    link.href = encodeURI(csv); link.download = 'apex_amortization_schedule.csv';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
-/* ==============================
+/* ─────────────────────────────────────
    ADMIN USER MANAGEMENT
-================================ */
+───────────────────────────────────── */
 async function fetchAdminUsers() {
     if (!authToken || !isMaster) return;
     const container = document.getElementById('admin-user-list');
     try {
-        const res = await fetch(`${API_BASE}/admin/users`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        if (!res.ok) throw new Error("Failed to load users");
+        const res = await fetch(`${API_BASE}/admin/users`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        if (!res.ok) throw new Error('Failed to load users');
         const users = await res.json();
-        
         container.innerHTML = users.map(u => `
             <div class="user-row">
                 <div class="user-info">
@@ -905,21 +959,18 @@ async function fetchAdminUsers() {
                 <div class="user-actions">
                     <button class="action-btn" onclick="toggleUserStatus(${u.id})">${u.is_active ? 'Suspend' : 'Activate'}</button>
                     <button class="action-btn btn-delete" onclick="deleteUser(${u.id})">Erase</button>
-                </div>
-                ` : ''}
-            </div>
-        `).join('');
+                </div>` : ''}
+            </div>`).join('');
     } catch(e) {
-        container.innerHTML = `<div class="error-msg">Failed to load users</div>`;
+        container.innerHTML = `<div class="loading-text" style="color:var(--red);">Failed to load users</div>`;
     }
 }
 
 async function toggleUserStatus(userId) {
-    if (!confirm("Are you sure you want to change this user's access status?")) return;
+    if (!confirm("Change this user's access status?")) return;
     try {
         const res = await fetch(`${API_BASE}/admin/users/${userId}/toggle-status`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
+            method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error((await res.json()).detail);
         fetchAdminUsers();
@@ -927,24 +978,186 @@ async function toggleUserStatus(userId) {
 }
 
 async function deleteUser(userId) {
-    if (!confirm("WARNING: Are you absolutely sure? This will PERMANENTLY erase the user and all their prediction history. This action cannot be undone.")) return;
+    if (!confirm('WARNING: Permanently erase this user and all their history? This cannot be undone.')) return;
     try {
         const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${authToken}` }
+            method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (!res.ok) throw new Error((await res.json()).detail);
         fetchAdminUsers();
     } catch(e) { alert(e.message); }
 }
 
-/* ==============================
-   PWA SERVICE WORKER REGISTRATION
-============================== */
+/* ─────────────────────────────────────
+   DYNAMIC RESULT STYLES
+───────────────────────────────────── */
+const resultStyles = document.createElement('style');
+resultStyles.textContent = `
+.result-output {
+    padding: 1rem 0 1rem 1.25rem;
+    border-radius: 4px;
+    text-align: left;
+    border-top: none; border-right: none; border-bottom: none;
+}
+.result-track-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--border-medium);
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 0.22rem 0.75rem;
+    border-radius: 20px;
+    margin-bottom: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+.result-status {
+    font-size: 1.95rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.2rem;
+}
+.result-tier {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 1.1rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+.result-score-block { margin-bottom: 0.75rem; }
+.score-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+}
+.score-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+.score-value { font-size: 1.05rem; font-weight: 800; }
+.score-bar-wrap {
+    position: relative;
+    height: 7px;
+    background: var(--border-medium);
+    border-radius: 4px;
+    overflow: visible;
+}
+.score-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+.score-threshold-line {
+    position: absolute;
+    left: 75%;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    border-left: 2px dashed var(--red);
+    transform: translateX(-50%);
+    opacity: 0.6;
+}
+.score-notes {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 0.5rem;
+    line-height: 1.5;
+}
+.result-section-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 0.85rem 0;
+}
+.result-factors-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+.section-chip {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+.result-factors-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.factor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    gap: 0.5rem;
+}
+.factor-row.positive { background: var(--green-bg); border: 1px solid var(--green-brd); }
+.factor-row.negative { background: var(--red-bg);   border: 1px solid var(--red-brd);   }
+.factor-label { flex: 1; min-width: 0; }
+.factor-impact { font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; flex-shrink: 0; }
+.conditions-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.83rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.conditions-list li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.result-comparison {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+.compare-box {
+    flex: 1;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-medium);
+    border-radius: 9px;
+    padding: 0.8rem 0.9rem;
+}
+.compare-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.compare-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+.compare-amount { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-heading); }
+.compare-note { font-size: 0.7rem; font-weight: 600; margin-top: 0.3rem; }
+.compare-note.denied   { color: var(--red); }
+.compare-note.approved { color: var(--green); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+`;
+document.head.appendChild(resultStyles);
+
+/* ─────────────────────────────────────
+   PWA SERVICE WORKER
+───────────────────────────────────── */
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/static/sw.js')
-            .then(reg => console.log('[PWA] Service Worker registered successfully with scope:', reg.scope))
-            .catch(err => console.warn('[PWA] Service Worker registration failed:', err));
+            .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+            .catch(err => console.warn('[PWA] Service Worker failed:', err));
     });
 }
